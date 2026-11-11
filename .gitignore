@@ -1,0 +1,24 @@
+# Gradle / Android build output
+.gradle/
+build/
+/local.properties
+*.hprof
+captures/
+
+# Signing material never belongs in the tree
+*.jks
+*.keystore
+
+# IDE / OS noise
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# APKs are build artifacts, sideloaded out of band. dist/ keeps the
+# device screenshots (the evidence) but not the binaries.
+*.apk
+*.aab
+
+# Python helpers used for device testing
+__pycache__/
