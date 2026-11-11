@@ -1,0 +1,181 @@
+-- ezamp local index. Jellyfin is a sync source; every screen reads this DB, never the network.
+-- Table names are prefixed so SQLDelight's generated row types (LibraryAlbum/LibraryTrack)
+-- cannot collide with the domain models of the same name.
+
+CREATE TABLE libraryAlbum (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sortName TEXT NOT NULL DEFAULT '',
+    artist TEXT NOT NULL DEFAULT '',
+    year INTEGER,
+    trackCount INTEGER NOT NULL DEFAULT 0,
+    imageTag TEXT,
+    created TEXT
+);
+
+CREATE TABLE libraryTrack (
+    id TEXT NOT NULL PRIMARY KEY,
+    albumId TEXT,
+    albumName TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    sortName TEXT NOT NULL DEFAULT '',
+    artist TEXT NOT NULL DEFAULT '',
+    trackNo INTEGER,
+    discNo INTEGER,
+    durationMs INTEGER NOT NULL DEFAULT 0,
+    container TEXT,
+    imageTag TEXT,
+    favourite INTEGER NOT NULL DEFAULT 0,
+    haystack TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX libraryTrack_album ON libraryTrack(albumId);
+CREATE INDEX libraryTrack_sort ON libraryTrack(sortName);
+CREATE INDEX libraryAlbum_sort ON libraryAlbum(sortName);
+
+upsertAlbum:
+INSERT OR REPLACE INTO libraryAlbum(id, name, sortName, artist, year, trackCount, imageTag, created)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+upsertTrack:
+INSERT OR REPLACE INTO libraryTrack(id, albumId, albumName, title, sortName, artist, trackNo, discNo, durationMs, container, imageTag, favourite, haystack)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+clearTracks:
+DELETE FROM libraryTrack;
+
+clearAlbums:
+DELETE FROM libraryAlbum;
+
+allAlbums:
+SELECT * FROM libraryAlbum ORDER BY sortName;
+
+recentAlbums:
+SELECT * FROM libraryAlbum ORDER BY created DESC LIMIT 12;
+
+albumCount:
+SELECT COUNT(*) FROM libraryAlbum;
+
+trackCount:
+SELECT COUNT(*) FROM libraryTrack;
+
+tracksForAlbum:
+SELECT * FROM libraryTrack WHERE albumId = ? ORDER BY discNo, trackNo;
+
+setFavourite:
+UPDATE libraryTrack SET favourite = ? WHERE id = ?;
+
+favouriteTracks:
+SELECT * FROM libraryTrack WHERE favourite = 1 ORDER BY title LIMIT 500;
+
+-- Search runs against a pre-lowercased haystack, so no per-row LOWER() at query time.
+searchTracks:
+SELECT * FROM libraryTrack WHERE haystack LIKE :needle LIMIT 300;
+
+-- Artists are derived from the album rows: album artist is the grouping key Jellyfin gives us.
+artists:
+SELECT artist, COUNT(*) AS albumCount FROM libraryAlbum
+WHERE artist != '' GROUP BY artist ORDER BY artist;
+
+albumsByArtist:
+SELECT * FROM libraryAlbum WHERE artist = ? ORDER BY sortName;
+
+CREATE TABLE libraryPlaylist (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sortName TEXT NOT NULL DEFAULT '',
+    trackCount INTEGER NOT NULL DEFAULT 0,
+    imageTag TEXT,
+    created TEXT,
+    remoteCount INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE libraryPlaylistTrack (
+    playlistId TEXT NOT NULL,
+    trackId TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (playlistId, trackId)
+);
+
+CREATE INDEX libraryPlaylistTrack_playlist ON libraryPlaylistTrack(playlistId, position);
+
+upsertPlaylist:
+INSERT OR REPLACE INTO libraryPlaylist(id, name, sortName, trackCount, imageTag, created, remoteCount)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+upsertPlaylistTrack:
+INSERT OR REPLACE INTO libraryPlaylistTrack(playlistId, trackId, position)
+VALUES (?, ?, ?);
+
+clearPlaylists:
+DELETE FROM libraryPlaylist;
+
+clearPlaylistTracks:
+DELETE FROM libraryPlaylistTrack;
+
+allPlaylistMeta:
+SELECT id, trackCount, remoteCount FROM libraryPlaylist;
+
+deletePlaylist:
+DELETE FROM libraryPlaylist WHERE id = ?;
+
+deletePlaylistTracks:
+DELETE FROM libraryPlaylistTrack WHERE playlistId = ?;
+
+allPlaylists:
+SELECT * FROM libraryPlaylist WHERE trackCount > 0 ORDER BY sortName;
+
+playlistTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryPlaylistTrack p ON p.trackId = t.id
+WHERE p.playlistId = ?
+ORDER BY p.position;
+
+-- Offline copies. state: 0 queued, 1 downloading, 2 done, 3 failed.
+CREATE TABLE libraryDownload (
+    trackId TEXT NOT NULL PRIMARY KEY,
+    albumId TEXT,
+    state INTEGER NOT NULL DEFAULT 0,
+    bytes INTEGER NOT NULL DEFAULT 0,
+    totalBytes INTEGER NOT NULL DEFAULT 0,
+    path TEXT,
+    error TEXT,
+    updatedAt TEXT,
+    mime TEXT
+);
+
+CREATE INDEX libraryDownload_album ON libraryDownload(albumId, state);
+
+upsertDownload:
+INSERT OR REPLACE INTO libraryDownload(trackId, albumId, state, bytes, totalBytes, path, error, updatedAt, mime)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+allDownloads:
+SELECT * FROM libraryDownload;
+
+downloadFor:
+SELECT * FROM libraryDownload WHERE trackId = ?;
+
+downloadsForAlbum:
+SELECT * FROM libraryDownload WHERE albumId = ?;
+
+downloadBytesForAlbum:
+SELECT COALESCE(SUM(bytes), 0) FROM libraryDownload WHERE albumId = ? AND state = 2;
+
+downloadCounts:
+SELECT state, COUNT(*) AS n FROM libraryDownload GROUP BY state;
+
+downloadBytesTotal:
+SELECT COALESCE(SUM(bytes), 0) FROM libraryDownload WHERE state = 2;
+
+allDownloadedIds:
+SELECT trackId FROM libraryDownload WHERE state = 2;
+
+deleteDownload:
+DELETE FROM libraryDownload WHERE trackId = ?;
+
+deleteDownloadsForAlbum:
+DELETE FROM libraryDownload WHERE albumId = ?;
+
+deleteAllDownloads:
+DELETE FROM libraryDownload;

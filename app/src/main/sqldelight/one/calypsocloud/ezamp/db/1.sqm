@@ -1,0 +1,17 @@
+CREATE TABLE libraryPlaylist (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sortName TEXT NOT NULL DEFAULT '',
+    trackCount INTEGER NOT NULL DEFAULT 0,
+    imageTag TEXT,
+    created TEXT
+);
+
+CREATE TABLE libraryPlaylistTrack (
+    playlistId TEXT NOT NULL,
+    trackId TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (playlistId, trackId)
+);
+
+CREATE INDEX libraryPlaylistTrack_playlist ON libraryPlaylistTrack(playlistId, position);

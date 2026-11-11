@@ -1,0 +1,1 @@
+ALTER TABLE libraryDownload ADD COLUMN mime TEXT;
