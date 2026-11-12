@@ -37,6 +37,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Phones stay upright: in landscape the fixed header, mini player and tabs leave ~100 px for
+        // content. Tablets and unfolded foldables (shortest side >= 600 dp) rotate freely, which
+        // Android 16 enforces there anyway for apps targeting API 36.
+        if (resources.configuration.smallestScreenWidthDp < 600) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
 
         connectivity = getSystemService(android.net.ConnectivityManager::class.java)
         try {

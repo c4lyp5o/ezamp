@@ -306,6 +306,13 @@ private inline fun <T> timedFilter(what: String, all: List<T>, query: String, te
     return out
 }
 
+/** Art-forward grid columns: one per ~170 dp of width (22 dp margins, 16 dp gaps), at least two. */
+@Composable
+private fun gridColumns(): Int {
+    val width = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    return ((width - 44 + 16) / (170 + 16)).coerceAtLeast(2)
+}
+
 @Composable
 private fun AlbumsPage(
     lib: LibState,
@@ -317,6 +324,7 @@ private fun AlbumsPage(
 ) {
     val searching = query.isNotBlank()
     val shown = remember(lib.albums, query) { timedFilter("albums", lib.albums, query) { "${it.name} ${it.artist}" } }
+    val cols = gridColumns()
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         if (searching) {
             item { Caption("${shown.size} albums") }
@@ -340,8 +348,9 @@ private fun AlbumsPage(
         }
 
         if (art) {
-            // Art-forward: two comfortable columns, covers doing the talking.
-            items(shown.chunked(2), key = { it.first().id }) { row ->
+            // Art-forward: comfortable columns, covers doing the talking. Two on a phone held upright,
+            // more in landscape and on tablets so a cover never fills the whole screen.
+            items(shown.chunked(cols), key = { it.first().id }) { row ->
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -356,7 +365,7 @@ private fun AlbumsPage(
                             modifier = Modifier.weight(1f),
                         ) { onOpenAlbum(a.id) }
                     }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         } else {
@@ -618,6 +627,7 @@ internal fun PlaylistsScreen(
     onOpen: (String) -> Unit,
 ) {
     val entries: List<Playlist?> = listOf(null) + lib.playlists
+    val cols = gridColumns()
     val favCount = "${lib.favourites.size} tracks"
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
@@ -633,7 +643,7 @@ internal fun PlaylistsScreen(
             }
         }
         if (art) {
-            items(entries.chunked(2), key = { it.first()?.id ?: "favourites" }) { row ->
+            items(entries.chunked(cols), key = { it.first()?.id ?: "favourites" }) { row ->
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -649,7 +659,7 @@ internal fun PlaylistsScreen(
                             }) { onOpen(pl.id) }
                         }
                     }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         } else {
