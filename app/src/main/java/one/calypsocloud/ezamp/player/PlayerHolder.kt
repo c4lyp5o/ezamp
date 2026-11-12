@@ -36,6 +36,8 @@ data class PlayState(
     val artUri: String? = null,
     /** True when this track is being fetched as a transcode rather than the server's own file. */
     val transcoding: Boolean = false,
+    /** Transient refusal reason, set when play() declines (e.g. offline mode). Cleared on next play. */
+    val notice: String? = null,
 ) {
     val active: Boolean get() = itemId != null
 }
@@ -122,6 +124,12 @@ object PlayerHolder {
         }
         if (tracks.isEmpty()) return
         val first = tracks[startIndex]
+        if (Prefs.downloadsOnly && !one.calypsocloud.ezamp.data.Downloads.isDownloaded(first.id)) {
+            _state.value = _state.value.copy(notice = "Not downloaded — turn off OFFLINE or download it first")
+            android.util.Log.i("ezamp-offline", "refused ${first.id}: downloadsOnly and not on device")
+            return
+        }
+        _state.value = _state.value.copy(notice = null)
         android.util.Log.i(
             "ezamp-perf",
             "play ${first.container} ${first.durationMs / 1000}s mode=${Prefs.playMode} local=${one.calypsocloud.ezamp.data.Downloads.isDownloaded(first.id)}",

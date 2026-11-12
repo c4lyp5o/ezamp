@@ -150,7 +150,15 @@ private fun HomeScreen(
         item {
             Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("EZAMP", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
+                    Text("Library", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
+                    if (lib.downloadsOnly) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "OFFLINE",
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = Accent,
+                        )
+                    }
                     Spacer(Modifier.weight(1f))
                     Text(
                         if (lib.syncing) "SYNCING" else "SYNC",
@@ -165,8 +173,6 @@ private fun HomeScreen(
                         modifier = Modifier.clickable { onSettings() }.padding(6.dp),
                     )
                 }
-                Spacer(Modifier.height(if (art) 14.dp else 10.dp))
-                Text("Library", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     when {
@@ -231,6 +237,7 @@ private fun HomeScreen(
                         AlbumTile(
                             a = a,
                             playing = play.album == a.name,
+                            done = lib.doneCounts[a.id] ?: 0,
                             modifier = Modifier.weight(1f),
                         ) { onOpenAlbum(a.id) }
                     }
@@ -239,7 +246,7 @@ private fun HomeScreen(
             }
         } else {
             items(lib.albums, key = { it.id }) { a ->
-                AlbumRow(a, playing = play.album == a.name) { onOpenAlbum(a.id) }
+                AlbumRow(a, playing = play.album == a.name, done = lib.doneCounts[a.id] ?: 0) { onOpenAlbum(a.id) }
             }
         }
 
@@ -251,7 +258,7 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun AlbumTile(a: Album, playing: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun AlbumTile(a: Album, playing: Boolean, done: Int = 0, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(modifier.clickable { onClick() }) {
         ArtBox(url = a.artUri, label = a.name, corner = 6.dp, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
@@ -265,12 +272,19 @@ private fun AlbumTile(a: Album, playing: Boolean, modifier: Modifier = Modifier,
             listOfNotNull(
                 a.artist.takeIf { it.isNotBlank() },
                 a.year?.toString(),
+                partialLabel(done, a.trackCount),
             ).joinToString(" · "),
             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
             color = Dim,
             maxLines = 1,
         )
     }
+}
+
+/** "3/12" while partially downloaded. Null when untouched, complete, or unknown so rows stay clean. */
+private fun partialLabel(done: Int, total: Int): String? {
+    if (total <= 0 || done <= 0 || done >= total) return null
+    return "$done/$total"
 }
 
 @Composable
@@ -297,7 +311,7 @@ private fun AlbumCard(a: Album, size: androidx.compose.ui.unit.Dp, onClick: () -
 }
 
 @Composable
-private fun AlbumRow(a: Album, playing: Boolean, onClick: () -> Unit) {
+private fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -319,6 +333,7 @@ private fun AlbumRow(a: Album, playing: Boolean, onClick: () -> Unit) {
                     a.artist.takeIf { it.isNotBlank() },
                     a.year?.toString(),
                     "${a.trackCount} tracks".takeIf { a.trackCount > 0 },
+                    partialLabel(done, a.trackCount),
                 ).joinToString(" · "),
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                 color = Dim,
@@ -538,6 +553,19 @@ private fun SettingsSheet(
                 detail = "transcoded mp3 ${Prefs.saverKbps}k · downloads follow this",
                 selected = playMode == "saver",
             ) { onPlayMode("saver") }
+
+            Spacer(Modifier.height(22.dp))
+            Hairline()
+            Spacer(Modifier.height(20.dp))
+
+            Text("OFFLINE", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
+            Spacer(Modifier.height(4.dp))
+            val lib by one.calypsocloud.ezamp.data.LibraryStore.state.collectAsState()
+            ChoiceRow(
+                title = "Downloaded only",
+                detail = "hide everything not on this device",
+                selected = lib.downloadsOnly,
+            ) { one.calypsocloud.ezamp.data.LibraryStore.setDownloadsOnly(!lib.downloadsOnly) }
 
             Spacer(Modifier.height(22.dp))
             Hairline()
@@ -880,6 +908,14 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                     )
                 }
                 Spacer(Modifier.height(14.dp))
+                if (play.notice != null) {
+                    Text(
+                        play.notice!!,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = Ez.Warn,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
                 Hairline()
             }
         }
