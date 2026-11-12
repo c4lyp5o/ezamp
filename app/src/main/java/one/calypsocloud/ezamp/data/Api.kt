@@ -47,6 +47,7 @@ data class ItemDto(
     val AlbumPrimaryImageTag: String? = null,
     val PrimaryImageTag: String? = null,
     val Artists: List<String> = emptyList(),
+    val Genres: List<String> = emptyList(),
     val IndexNumber: Int? = null,
     val ParentIndexNumber: Int? = null,
     val ChildCount: Int? = null,
@@ -141,6 +142,11 @@ object Prefs {
     var repeat: Int
         get() = sp.getInt("repeat", 0)
         set(v) = sp.edit().putInt("repeat", v).apply()
+
+    /** Set by the first sync that pulled track genres (0.9.0+); upgraded installs start false. */
+    var genresIndexed: Boolean
+        get() = sp.getBoolean("genresIndexed", false)
+        set(v) = sp.edit().putBoolean("genresIndexed", v).apply()
 
     /** Last Library carousel page (ALBUMS, TRACKS, ...), restored on the next launch. */
     var libPage: Int

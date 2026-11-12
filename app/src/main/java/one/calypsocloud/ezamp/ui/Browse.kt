@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import one.calypsocloud.ezamp.data.Album
 import one.calypsocloud.ezamp.data.Artist
+import one.calypsocloud.ezamp.data.Genre
 import one.calypsocloud.ezamp.data.LibState
 import one.calypsocloud.ezamp.data.LibraryStore
 import one.calypsocloud.ezamp.data.Playlist
@@ -59,6 +60,7 @@ internal enum class LibPage(val label: String, val hint: String) {
     Albums("ALBUMS", "Search albums"),
     Tracks("TRACKS", "Search tracks"),
     Artists("ARTISTS", "Search artists"),
+    Genres("GENRES", "Search genres"),
 }
 
 /** One list state per page, owned by Root so scroll positions survive an album round trip. */
@@ -66,11 +68,13 @@ internal class LibLists(
     val albums: LazyListState,
     val tracks: LazyListState,
     val artists: LazyListState,
+    val genres: LazyListState,
 ) {
     fun forPage(p: LibPage): LazyListState = when (p) {
         LibPage.Albums -> albums
         LibPage.Tracks -> tracks
         LibPage.Artists -> artists
+        LibPage.Genres -> genres
     }
 }
 
@@ -88,9 +92,12 @@ internal fun LibraryScreen(
     allTracks: List<Track>?,
     artists: List<Artist>,
     artistsNeedResync: Boolean,
+    genres: List<Genre>,
+    genresNeedResync: Boolean,
     onPage: (Int) -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
+    onOpenGenre: (String) -> Unit,
     onSync: () -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -104,6 +111,7 @@ internal fun LibraryScreen(
             LibPage.Albums -> AlbumsPage(lib, play, art, query, lists.albums, onOpenAlbum)
             LibPage.Tracks -> TracksPage(lib, play, query, allTracks, lists.tracks)
             LibPage.Artists -> ArtistsPage(artists, artistsNeedResync, query, lists.artists, onOpenArtist)
+            LibPage.Genres -> GenresPage(genres, genresNeedResync, query, lists.genres, onOpenGenre)
         }
     }
 }
@@ -442,6 +450,113 @@ private fun ArtistsPage(
                     color = Mute,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun GenresPage(
+    genres: List<Genre>,
+    needResync: Boolean,
+    query: String,
+    state: LazyListState,
+    onOpenGenre: (String) -> Unit,
+) {
+    val shown = remember(genres, query) { timedFilter("genres", genres, query) { it.name } }
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Column {
+                if (needResync) {
+                    Text(
+                        "Genres arrive with the next sync — tap SYNC above.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Ez.Warn,
+                        modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 8.dp),
+                    )
+                }
+                Caption("${shown.size} genres")
+            }
+        }
+        items(shown, key = { it.name }) { g ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenGenre(g.name) }
+                    .padding(horizontal = 22.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    g.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${g.trackCount}",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                    color = Mute,
+                )
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ genre
+
+/** A genre is a track list: PLAY ALL from the top, SHUFFLE over (a sample of) all of it. */
+@Composable
+internal fun GenreScreen(name: String, play: PlayState, onBack: () -> Unit) {
+    var tracks by remember(name) { mutableStateOf<List<Track>?>(null) }
+    LaunchedEffect(name) { tracks = LibraryStore.tracksByGenre(name) }
+    val rows = tracks.orEmpty()
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Column(Modifier.padding(horizontal = 22.dp)) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "‹  BACK",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Dim,
+                    modifier = Modifier.clickable { onBack() }.padding(vertical = 12.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(name, style = MaterialTheme.typography.headlineSmall, color = Ink)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (tracks == null) "reading tracks…" else "${rows.size} tracks",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    color = Dim,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "PLAY ALL",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (rows.isEmpty()) Mute else Accent,
+                        modifier = Modifier
+                            .clickable(enabled = rows.isNotEmpty()) { playWindow(rows, 0) }
+                            .padding(vertical = 10.dp),
+                    )
+                    Spacer(Modifier.width(26.dp))
+                    Text(
+                        "SHUFFLE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (rows.size > 1) Accent else Mute,
+                        modifier = Modifier
+                            .clickable(enabled = rows.size > 1) {
+                                // Same queue budget as playWindow: a sample of 300, shuffled.
+                                PlayerHolder.playShuffled(if (rows.size > 300) rows.shuffled().take(300) else rows)
+                            }
+                            .padding(vertical = 10.dp),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+        }
+        itemsIndexed(rows, key = { _, t -> t.id }) { i, t ->
+            TrackRow(t, playing = play.itemId == t.id) { playWindow(rows, i) }
         }
     }
 }

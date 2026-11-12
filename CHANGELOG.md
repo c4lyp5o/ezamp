@@ -2,6 +2,21 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
+## [Unreleased]
+
+### Added
+- **Library carousel.** A swipeable label strip under the header (ALBUMS · TRACKS · ARTISTS · GENRES); only the strip swipes, one page per swipe, and tapping a label jumps. The last page is restored on launch.
+- **Search lives in Library** and filters whichever page is showing; the SEARCH tab is gone. TRACKS lists every track A–Z and queues a 300-track window around the tapped row.
+- **Genres** (new `libraryTrackGenre` table, migration 7). Multi-genre tags are split on `;`, grouped case-insensitively; a genre opens as a track list with PLAY ALL and SHUFFLE. Upgraded installs see a one-line hint until the next SYNC.
+- **Playlists tab**, replacing the shelf on Library. Nav is now LIBRARY · PLAYLISTS · FAVOURITES; ARTISTS moved into the carousel.
+- **Shuffle and repeat** (off/all/one) in Now Playing, remembered across restarts. The current track always leads the shuffle order, so a shuffled list plays every track. SHUFFLE on album, playlist and Favourites headers.
+- **Gestures.** Swipe Now Playing down to close; swipe the mini player left/right to skip; tap the current tab to scroll to the top.
+
+### Fixed
+- **Back left the app from anywhere.** It now closes Now Playing, detail screens, other tabs, the search and the carousel page in turn; only a bare Library hands back to the launcher.
+- **Tapping the media notification did nothing.** The session now carries a session activity (`singleTop`), so it opens ezamp where you left it.
+- **Returning from an album opened via an artist** dropped you on the full artist list; the artist is kept.
+
 ## [0.8.0] — 2026-11-12
 
 ### Added

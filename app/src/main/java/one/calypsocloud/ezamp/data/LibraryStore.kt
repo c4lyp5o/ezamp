@@ -65,6 +65,8 @@ fun mimeFor(container: String?): String? = when (container?.lowercase()) {
 
 data class Artist(val name: String, val albumCount: Int)
 
+data class Genre(val name: String, val trackCount: Int)
+
 data class Playlist(
     val id: String,
     val name: String,
@@ -206,7 +208,7 @@ object LibraryStore {
                 val tracks = async(Dispatchers.IO) {
                     pullAll(
                         a, userId, "Audio", limit = 1000,
-                        fields = "RunTimeTicks,AlbumId,Artists,IndexNumber,ParentIndexNumber,MediaSources,Etag,AlbumPrimaryImageTag,DateCreated,SortName",
+                        fields = "RunTimeTicks,AlbumId,Artists,Genres,IndexNumber,ParentIndexNumber,MediaSources,Etag,AlbumPrimaryImageTag,DateCreated,SortName",
                         sortBy = "SortName",
                     )
                 }
@@ -222,6 +224,7 @@ object LibraryStore {
                 queries.clearTracks()
                 queries.clearAlbums()
                 queries.clearTrackArtists()
+                queries.clearTrackGenres()
                 albumsRaw.forEach { dto ->
                     queries.upsertAlbum(
                         id = dto.Id,
@@ -255,12 +258,18 @@ object LibraryStore {
                     ArtistCredits.of(dto.Artists, dto.AlbumArtist).forEach { name ->
                         queries.upsertTrackArtist(dto.Id, name)
                     }
+                    GenreTags.of(dto.Genres).forEach { g ->
+                        queries.upsertTrackGenre(dto.Id, g)
+                    }
                 }
             }
             android.util.Log.i(
                 "ezamp-perf",
                 "sync=${tookMs}ms db albums=${queries.albumCount().executeAsOne()} tracks=${queries.trackCount().executeAsOne()}",
             )
+
+            android.util.Log.i("ezamp-perf", "genres=${queries.trackGenreCount().executeAsOne()} rows")
+            Prefs.genresIndexed = true
 
             // Publish the library before touching playlists: browsing is usable from here on.
             val stamp = Instant.now().toString()
@@ -513,6 +522,28 @@ object LibraryStore {
     /** Upgraded from 0.7.0: tracks are indexed but their artist credits arrive with the next sync. */
     suspend fun artistsNeedResync(): Boolean = withContext(Dispatchers.IO) {
         q().trackArtistCount().executeAsOne() == 0L && q().trackCount().executeAsOne() > 0L
+    }
+
+    suspend fun genres(): List<Genre> = withContext(Dispatchers.IO) {
+        if (Prefs.downloadsOnly) {
+            q().scopedGenres().executeAsList().map { Genre(it.genre, it.trackCount.toInt()) }
+        } else {
+            q().genres().executeAsList().map { Genre(it.genre, it.trackCount.toInt()) }
+        }
+    }
+
+    /**
+     * Upgraded from 0.8.0: tracks are indexed but no sync has asked for genres yet. Keyed on a flag,
+     * not on an empty genre table, so a library with no genre tags does not nag forever.
+     */
+    suspend fun genresNeedResync(): Boolean = withContext(Dispatchers.IO) {
+        !Prefs.genresIndexed && q().trackCount().executeAsOne() > 0L
+    }
+
+    suspend fun tracksByGenre(genre: String): List<Track> = withContext(Dispatchers.IO) {
+        val a = api()
+        val rows = if (Prefs.downloadsOnly) q().scopedTracksByGenre(genre) else q().tracksByGenre(genre)
+        rows.executeAsList().map { it.toDomain(a) }
     }
 
     suspend fun albumsByArtist(name: String): List<Album> = withContext(Dispatchers.IO) {

@@ -87,6 +87,35 @@ CREATE TABLE libraryTrackArtist (
 
 CREATE INDEX libraryTrackArtist_artist ON libraryTrackArtist(artist);
 
+-- Every genre Jellyfin lists on a track, one row each (migration 7).
+CREATE TABLE libraryTrackGenre (
+    trackId TEXT NOT NULL,
+    genre TEXT NOT NULL,
+    PRIMARY KEY (trackId, genre)
+);
+
+CREATE INDEX libraryTrackGenre_genre ON libraryTrackGenre(genre COLLATE NOCASE);
+
+upsertTrackGenre:
+INSERT OR IGNORE INTO libraryTrackGenre(trackId, genre) VALUES (?, ?);
+
+clearTrackGenres:
+DELETE FROM libraryTrackGenre;
+
+trackGenreCount:
+SELECT COUNT(*) FROM libraryTrackGenre;
+
+genres:
+SELECT g.genre AS genre, COUNT(*) AS trackCount
+FROM libraryTrackGenre g
+GROUP BY g.genre COLLATE NOCASE ORDER BY g.genre COLLATE NOCASE;
+
+tracksByGenre:
+SELECT t.* FROM libraryTrack t
+JOIN libraryTrackGenre g ON g.trackId = t.id
+WHERE g.genre = ? COLLATE NOCASE
+ORDER BY t.sortName, t.title COLLATE NOCASE;
+
 upsertTrackArtist:
 INSERT OR IGNORE INTO libraryTrackArtist(trackId, artist) VALUES (?, ?);
 
@@ -253,6 +282,19 @@ WHERE t.haystack LIKE :needle LIMIT 300;
 scopedAllTracks:
 SELECT t.* FROM libraryTrack t
 JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+ORDER BY t.sortName, t.title COLLATE NOCASE;
+
+scopedGenres:
+SELECT g.genre AS genre, COUNT(*) AS trackCount
+FROM libraryTrackGenre g
+JOIN libraryDownload d ON d.trackId = g.trackId AND d.state = 2
+GROUP BY g.genre COLLATE NOCASE ORDER BY g.genre COLLATE NOCASE;
+
+scopedTracksByGenre:
+SELECT t.* FROM libraryTrack t
+JOIN libraryTrackGenre g ON g.trackId = t.id
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+WHERE g.genre = ? COLLATE NOCASE
 ORDER BY t.sortName, t.title COLLATE NOCASE;
 
 scopedTrackCount:

@@ -51,6 +51,7 @@ fun Root(onSignOut: () -> Unit) {
     var albumId by remember { mutableStateOf<String?>(null) }
     var playlistId by remember { mutableStateOf<String?>(null) }
     var artistOpen by remember { mutableStateOf<String?>(null) }
+    var genreOpen by remember { mutableStateOf<String?>(null) }
     var showNow by remember { mutableStateOf(false) }
     var variant by remember { mutableStateOf(Prefs.variant) }
     var playMode by remember { mutableStateOf(Prefs.playMode) }
@@ -66,7 +67,10 @@ fun Root(onSignOut: () -> Unit) {
     val albumsList = rememberLazyListState()
     val tracksList = rememberLazyListState()
     val artistsList = rememberLazyListState()
-    val lists = remember(albumsList, tracksList, artistsList) { LibLists(albumsList, tracksList, artistsList) }
+    val genresList = rememberLazyListState()
+    val lists = remember(albumsList, tracksList, artistsList, genresList) {
+        LibLists(albumsList, tracksList, artistsList, genresList)
+    }
     val playlistsList = rememberLazyListState()
     val favList = rememberLazyListState()
 
@@ -74,9 +78,13 @@ fun Root(onSignOut: () -> Unit) {
     // and again only when the sync, the offline scope or a favourite changed underneath.
     var artists by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Artist>>(emptyList()) }
     var artistsNeedResync by remember { mutableStateOf(false) }
+    var genres by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Genre>>(emptyList()) }
+    var genresNeedResync by remember { mutableStateOf(false) }
     LaunchedEffect(lib.lastSync, lib.downloadsOnly) {
         artists = LibraryStore.artists()
         artistsNeedResync = LibraryStore.artistsNeedResync()
+        genres = LibraryStore.genres()
+        genresNeedResync = LibraryStore.genresNeedResync()
     }
     var allTracks by remember { mutableStateOf<List<Track>?>(null) }
     var tracksLoadedFor by remember { mutableStateOf<Any?>(null) }
@@ -94,13 +102,14 @@ fun Root(onSignOut: () -> Unit) {
     // The settings sheet handles its own back through onDismissRequest.
     val nowOpen = showNow && play.active
     val bareLibrary = tab == Tab.Library && playlistId == null && albumId == null && artistOpen == null &&
-        query.isEmpty() && pager.currentPage == 0
+        genreOpen == null && query.isEmpty() && pager.currentPage == 0
     androidx.activity.compose.BackHandler(enabled = nowOpen || !bareLibrary) {
         when {
             nowOpen -> showNow = false
             playlistId != null -> playlistId = null
             albumId != null -> albumId = null
             artistOpen != null -> artistOpen = null
+            genreOpen != null -> genreOpen = null
             tab != Tab.Library -> tab = Tab.Library
             query.isNotEmpty() -> query = ""
             else -> scope.launch { pager.animateScrollToPage(0) }
@@ -127,7 +136,7 @@ fun Root(onSignOut: () -> Unit) {
                 }
                 if (!imeOpen) {
                     NavBar(tab) { t ->
-                        if (t == tab && albumId == null && playlistId == null && artistOpen == null) {
+                        if (t == tab && albumId == null && playlistId == null && artistOpen == null && genreOpen == null) {
                             // Tapping the tab you are already on goes back to the top of its list.
                             val list = when (t) {
                                 Tab.Library -> lists.forPage(page)
@@ -139,6 +148,7 @@ fun Root(onSignOut: () -> Unit) {
                         albumId = null
                         playlistId = null
                         artistOpen = null
+                        genreOpen = null
                         tab = t
                     }
                 }
@@ -168,6 +178,11 @@ fun Root(onSignOut: () -> Unit) {
                     onBack = { artistOpen = null },
                     onOpenAlbum = { albumId = it },
                 )
+                genreOpen != null -> GenreScreen(
+                    name = genreOpen!!,
+                    play = play,
+                    onBack = { genreOpen = null },
+                )
                 tab == Tab.Library -> LibraryScreen(
                     lib = lib,
                     play = play,
@@ -179,9 +194,12 @@ fun Root(onSignOut: () -> Unit) {
                     allTracks = allTracks,
                     artists = artists,
                     artistsNeedResync = artistsNeedResync,
+                    genres = genres,
+                    genresNeedResync = genresNeedResync,
                     onPage = { scope.launch { pager.animateScrollToPage(it) } },
                     onOpenAlbum = { albumId = it },
                     onOpenArtist = { artistOpen = it },
+                    onOpenGenre = { genreOpen = it },
                     onSync = { LibraryStore.resync() },
                     onSettings = { showSettings = true },
                 )

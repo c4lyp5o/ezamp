@@ -1,0 +1,9 @@
+-- Track genres (Jellyfin's Genres list), one row each. Filled by the next sync; until then the
+-- genres page shows a resync hint.
+CREATE TABLE libraryTrackGenre (
+    trackId TEXT NOT NULL,
+    genre TEXT NOT NULL,
+    PRIMARY KEY (trackId, genre)
+);
+
+CREATE INDEX libraryTrackGenre_genre ON libraryTrackGenre(genre COLLATE NOCASE);
