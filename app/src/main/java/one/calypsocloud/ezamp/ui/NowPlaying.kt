@@ -75,8 +75,10 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
         }
 
         Spacer(Modifier.height(10.dp))
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val side = maxWidth
+        // The cover gets whatever height the fixed rows below leave over: a full-width square on tall
+        // phones, a smaller centred square on short (16:9) screens instead of pushing the counter off.
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f, fill = false), contentAlignment = Alignment.TopCenter) {
+            val side = minOf(maxWidth, maxHeight)
             coil3.compose.AsyncImage(
                 model = play.artUri,
                 contentDescription = null,
@@ -157,7 +159,6 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
             color = Dim,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.weight(1f))
     }
 }
 
