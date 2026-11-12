@@ -521,6 +521,16 @@ object LibraryStore {
         rows.executeAsList().map { it.toDomain(a) }
     }
 
+    /** Every track A-Z for the Tracks page. Loaded only while that page is open; cost goes to the perf log. */
+    suspend fun allTracks(): List<Track> = withContext(Dispatchers.IO) {
+        val t0 = System.nanoTime()
+        val a = api()
+        val rows = (if (Prefs.downloadsOnly) q().scopedAllTracks() else q().allTracks()).executeAsList()
+        val out = rows.map { it.toDomain(a) }
+        android.util.Log.i("ezamp-perf", "tracks=${(System.nanoTime() - t0) / 1_000_000}ms rows=${out.size}")
+        out
+    }
+
     /** Indexed search. 5.5k rows -> single-digit milliseconds on device, no network. */
     fun search(qText: String) {
         val needle = qText.trim().lowercase()

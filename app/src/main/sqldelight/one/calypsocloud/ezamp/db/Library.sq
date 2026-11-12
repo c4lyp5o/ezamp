@@ -73,6 +73,10 @@ SELECT * FROM libraryTrack WHERE favourite = 1 ORDER BY title LIMIT 500;
 searchTracks:
 SELECT * FROM libraryTrack WHERE haystack LIKE :needle LIMIT 300;
 
+-- The Tracks page: every track A-Z, walking the sortName index.
+allTracks:
+SELECT * FROM libraryTrack ORDER BY sortName, title COLLATE NOCASE;
+
 -- Every name credited on a track (Jellyfin's Artists list) plus its album artist, one row each.
 -- Album artist alone hid every feature and split: 54 of the 127 artists the server knows.
 CREATE TABLE libraryTrackArtist (
@@ -245,6 +249,11 @@ scopedSearchTracks:
 SELECT t.* FROM libraryTrack t
 JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
 WHERE t.haystack LIKE :needle LIMIT 300;
+
+scopedAllTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+ORDER BY t.sortName, t.title COLLATE NOCASE;
 
 scopedTrackCount:
 SELECT COUNT(*) FROM libraryDownload WHERE state = 2;

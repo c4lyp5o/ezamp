@@ -8,25 +8,20 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -40,14 +35,16 @@ import one.calypsocloud.ezamp.data.LibState
 import one.calypsocloud.ezamp.data.Track
 import one.calypsocloud.ezamp.player.PlayState
 import one.calypsocloud.ezamp.player.PlayerHolder
+import kotlinx.coroutines.launch
 
-private enum class Tab { Library, Search, Artists, Favourites }
+private enum class Tab { Library, Playlists, Favourites }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun Root(onSignOut: () -> Unit) {
     val lib by LibraryStore.state.collectAsState()
     val play by PlayerHolder.state.collectAsState()
+    val scope = rememberCoroutineScope()
 
     var tab by remember { mutableStateOf(Tab.Library) }
     var albumId by remember { mutableStateOf<String?>(null) }
@@ -58,18 +55,54 @@ fun Root(onSignOut: () -> Unit) {
     var playMode by remember { mutableStateOf(Prefs.playMode) }
     var showSettings by remember { mutableStateOf(false) }
 
-    // Back peels one layer at a time; only a bare Library lets the system take it to the launcher.
+    // Library carousel, search and scroll positions live here so an album round trip keeps them.
+    val pager = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = Prefs.libPage.coerceIn(0, LibPage.entries.lastIndex),
+    ) { LibPage.entries.size }
+    LaunchedEffect(pager.settledPage) { Prefs.libPage = pager.settledPage }
+    val page = LibPage.entries[pager.currentPage]
+    var query by remember { mutableStateOf("") }
+    val albumsList = rememberLazyListState()
+    val tracksList = rememberLazyListState()
+    val artistsList = rememberLazyListState()
+    val lists = remember(albumsList, tracksList, artistsList) { LibLists(albumsList, tracksList, artistsList) }
+    val playlistsList = rememberLazyListState()
+    val favList = rememberLazyListState()
+
+    // Artists are one row per name, so load them eagerly; every track only while TRACKS is open,
+    // and again only when the sync, the offline scope or a favourite changed underneath.
+    var artists by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Artist>>(emptyList()) }
+    var artistsNeedResync by remember { mutableStateOf(false) }
+    LaunchedEffect(lib.lastSync, lib.downloadsOnly) {
+        artists = LibraryStore.artists()
+        artistsNeedResync = LibraryStore.artistsNeedResync()
+    }
+    var allTracks by remember { mutableStateOf<List<Track>?>(null) }
+    var tracksLoadedFor by remember { mutableStateOf<Any?>(null) }
+    val tracksKey = Triple(lib.lastSync, lib.downloadsOnly, lib.favourites)
+    val wantTracks = tab == Tab.Library && page == LibPage.Tracks
+    LaunchedEffect(wantTracks, tracksKey) {
+        if (wantTracks && tracksLoadedFor != tracksKey) {
+            allTracks = LibraryStore.allTracks()
+            tracksLoadedFor = tracksKey
+        }
+    }
+
+    // Back peels one layer at a time: player, detail screens, other tabs, the search, then the
+    // carousel back to ALBUMS. Only a bare Library lets the system take it to the launcher.
     // The settings sheet handles its own back through onDismissRequest.
     val nowOpen = showNow && play.active
-    androidx.activity.compose.BackHandler(
-        enabled = nowOpen || playlistId != null || albumId != null || artistOpen != null || tab != Tab.Library,
-    ) {
+    val bareLibrary = tab == Tab.Library && playlistId == null && albumId == null && artistOpen == null &&
+        query.isEmpty() && pager.currentPage == 0
+    androidx.activity.compose.BackHandler(enabled = nowOpen || !bareLibrary) {
         when {
             nowOpen -> showNow = false
             playlistId != null -> playlistId = null
             albumId != null -> albumId = null
             artistOpen != null -> artistOpen = null
-            else -> tab = Tab.Library
+            tab != Tab.Library -> tab = Tab.Library
+            query.isNotEmpty() -> query = ""
+            else -> scope.launch { pager.animateScrollToPage(0) }
         }
     }
 
@@ -93,8 +126,18 @@ fun Root(onSignOut: () -> Unit) {
                 }
                 if (!imeOpen) {
                     NavBar(tab) { t ->
+                        if (t == tab && albumId == null && playlistId == null && artistOpen == null) {
+                            // Tapping the tab you are already on goes back to the top of its list.
+                            val list = when (t) {
+                                Tab.Library -> lists.forPage(page)
+                                Tab.Playlists -> playlistsList
+                                Tab.Favourites -> favList
+                            }
+                            scope.launch { list.animateScrollToItem(0) }
+                        }
                         albumId = null
                         playlistId = null
+                        artistOpen = null
                         tab = t
                     }
                 }
@@ -118,23 +161,33 @@ fun Root(onSignOut: () -> Unit) {
                     play = play,
                     onBack = { albumId = null },
                 )
-                tab == Tab.Library -> HomeScreen(
+                artistOpen != null -> ArtistScreen(
+                    name = artistOpen!!,
+                    play = play,
+                    onBack = { artistOpen = null },
+                    onOpenAlbum = { albumId = it },
+                )
+                tab == Tab.Library -> LibraryScreen(
                     lib = lib,
                     play = play,
                     variant = variant,
+                    pager = pager,
+                    query = query,
+                    onQuery = { query = it },
+                    lists = lists,
+                    allTracks = allTracks,
+                    artists = artists,
+                    artistsNeedResync = artistsNeedResync,
+                    onPage = { scope.launch { pager.animateScrollToPage(it) } },
                     onOpenAlbum = { albumId = it },
-                    onOpenPlaylist = { playlistId = it },
+                    onOpenArtist = { artistOpen = it },
                     onSync = { LibraryStore.resync() },
                     onSettings = { showSettings = true },
                 )
-                tab == Tab.Search -> SearchScreen(play)
-                tab == Tab.Artists -> ArtistsScreen(
-                    play = play,
-                    open = artistOpen,
-                    onOpen = { artistOpen = it },
-                    onOpenAlbum = { albumId = it },
-                )
-                else -> FavouritesScreen(lib, play)
+                tab == Tab.Playlists -> PlaylistsScreen(lib, art = variant == "art", state = playlistsList) {
+                    playlistId = it
+                }
+                else -> FavouritesScreen(lib, play, favList)
             }
         }
     }
@@ -152,148 +205,8 @@ fun Root(onSignOut: () -> Unit) {
     }
 }
 
-// ------------------------------------------------------------------ home
-
 @Composable
-private fun HomeScreen(
-    lib: LibState,
-    play: PlayState,
-    variant: String,
-    onOpenAlbum: (String) -> Unit,
-    onOpenPlaylist: (String) -> Unit,
-    onSync: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    val art = variant == "art"
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
-    ) {
-        item {
-            Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Library", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
-                    if (lib.downloadsOnly) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "OFFLINE",
-                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                            color = Accent,
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        if (lib.syncing) "SYNCING" else "SYNC",
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                        color = if (lib.syncing) Accent else Dim,
-                        modifier = Modifier.clickable { if (!lib.syncing) onSync() }.padding(6.dp),
-                    )
-                    Text(
-                        "SET",
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                        color = Dim,
-                        modifier = Modifier.clickable { onSettings() }.padding(6.dp),
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    when {
-                        lib.error != null -> lib.error!!
-                        lib.albums.isEmpty() && lib.syncing -> "reading your library…"
-                        else -> "${lib.albums.size} albums · ${lib.trackCount} tracks"
-                    },
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                    color = if (lib.error != null) Ez.Bad else Dim,
-                )
-                val online by one.calypsocloud.ezamp.data.LibraryStore.online.collectAsState()
-                if (!online) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (lib.downloadsOnly) "NO CONNECTION — showing what's on this device"
-                        else "NO CONNECTION — tap to browse downloads",
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                        color = Ez.Warn,
-                        modifier = Modifier.clickable(enabled = !lib.downloadsOnly) {
-                            one.calypsocloud.ezamp.data.LibraryStore.setDownloadsOnly(true)
-                        }.padding(vertical = 4.dp),
-                    )
-                }
-                Spacer(Modifier.height(if (art) 26.dp else 22.dp))
-            }
-        }
-
-        if (lib.recent.isNotEmpty()) {
-            item {
-                SectionLabel("RECENTLY ADDED")
-                Spacer(Modifier.height(12.dp))
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 22.dp),
-                    horizontalArrangement = Arrangement.spacedBy(if (art) 16.dp else 14.dp),
-                ) {
-                    items(lib.recent, key = { it.id }) { a ->
-                        AlbumCard(a, size = if (art) 156.dp else 132.dp) { onOpenAlbum(a.id) }
-                    }
-                }
-                Spacer(Modifier.height(if (art) 34.dp else 28.dp))
-            }
-        }
-
-        if (lib.playlists.isNotEmpty()) {
-            item {
-                SectionLabel("PLAYLISTS")
-                Spacer(Modifier.height(12.dp))
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 22.dp),
-                    horizontalArrangement = Arrangement.spacedBy(if (art) 16.dp else 14.dp),
-                ) {
-                    items(lib.playlists, key = { it.id }) { pl ->
-                        PlaylistCard(pl, size = if (art) 156.dp else 132.dp) { onOpenPlaylist(pl.id) }
-                    }
-                }
-                Spacer(Modifier.height(if (art) 34.dp else 28.dp))
-            }
-        }
-
-        item {
-            SectionLabel("ALBUMS")
-            Spacer(Modifier.height(if (art) 14.dp else 6.dp))
-        }
-
-        if (art) {
-            // Art-forward: two comfortable columns, covers doing the talking.
-            items(lib.albums.chunked(2), key = { it.first().id }) { row ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 22.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    row.forEach { a ->
-                        AlbumTile(
-                            a = a,
-                            playing = play.album == a.name,
-                            done = lib.doneCounts[a.id] ?: 0,
-                            modifier = Modifier.weight(1f),
-                        ) { onOpenAlbum(a.id) }
-                    }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                }
-            }
-        } else {
-            items(lib.albums, key = { it.id }) { a ->
-                AlbumRow(a, playing = play.album == a.name, done = lib.doneCounts[a.id] ?: 0) { onOpenAlbum(a.id) }
-            }
-        }
-
-        item {
-            Spacer(Modifier.height(18.dp))
-            PerfFooter(lib)
-        }
-    }
-}
-
-@Composable
-private fun AlbumTile(a: Album, playing: Boolean, done: Int = 0, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun AlbumTile(a: Album, playing: Boolean, done: Int = 0, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(modifier.clickable { onClick() }) {
         ArtBox(url = a.artUri, label = a.name, corner = 6.dp, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
@@ -323,7 +236,7 @@ private fun partialLabel(done: Int, total: Int): String? {
 }
 
 @Composable
-private fun AlbumCard(a: Album, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+internal fun AlbumCard(a: Album, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
     Column(Modifier.width(size).clickable { onClick() }) {
         Art(a.artUri, size = size, corner = 6.dp, label = a.name)
         Spacer(Modifier.height(8.dp))
@@ -346,7 +259,7 @@ private fun AlbumCard(a: Album, size: androidx.compose.ui.unit.Dp, onClick: () -
 }
 
 @Composable
-private fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> Unit) {
+internal fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -375,30 +288,6 @@ private fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> U
                 maxLines = 1,
             )
         }
-    }
-}
-
-@Composable
-private fun PlaylistCard(pl: one.calypsocloud.ezamp.data.Playlist, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    Column(Modifier.width(size).clickable { onClick() }) {
-        Art(pl.artUri, size = size, corner = 6.dp, label = pl.name)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            pl.name,
-            style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-            color = Ink,
-            maxLines = 2,
-            minLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            "${pl.trackCount} tracks",
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-            color = Dim,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -480,100 +369,6 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
         }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
             TrackRow(t, playing = play.itemId == t.id) { PlayerHolder.play(tracks, i) }
-        }
-    }
-}
-
-// ------------------------------------------------------------------ artists
-
-@Composable
-private fun ArtistsScreen(
-    play: PlayState,
-    open: String?,
-    onOpen: (String?) -> Unit,
-    onOpenAlbum: (String) -> Unit,
-) {
-    var artists by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Artist>>(emptyList()) }
-    var albums by remember { mutableStateOf<List<Album>>(emptyList()) }
-    var needResync by remember { mutableStateOf(false) }
-    val lib by LibraryStore.state.collectAsState()
-
-    // Keyed on the last sync so the list refills by itself once a resync lands.
-    LaunchedEffect(lib.lastSync) {
-        artists = LibraryStore.artists()
-        needResync = LibraryStore.artistsNeedResync()
-    }
-    LaunchedEffect(open) {
-        albums = open?.let { LibraryStore.albumsByArtist(it) } ?: emptyList()
-    }
-
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
-            Text(
-                if (open == null) "ARTISTS" else "ARTIST",
-                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                color = Dim,
-            )
-            Spacer(Modifier.height(10.dp))
-            if (open == null) {
-                Text("Artists", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
-                Spacer(Modifier.height(6.dp))
-                if (needResync) {
-                    Text(
-                        "Featured artists arrive with the next sync — tap SYNC on Library.",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                        color = Ez.Warn,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                }
-                Text(
-                    "${artists.size} artists",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                    color = Dim,
-                )
-            } else {
-                Text(
-                    "‹  BACK",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                    color = Dim,
-                    modifier = Modifier.clickable { onOpen(null) }.padding(vertical = 6.dp),
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(open ?: "", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "${albums.size} albums",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                    color = Dim,
-                )
-            }
-            Spacer(Modifier.height(18.dp))
-        }
-
-        LazyColumn(Modifier.fillMaxSize()) {
-            if (open == null) {
-                items(artists, key = { it.name }) { a ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpen(a.name) }
-                            .padding(horizontal = 22.dp, vertical = 13.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(a.name, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, color = Ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        Text(
-                            "${a.albumCount}",
-                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                            color = Mute,
-                        )
-                    }
-                }
-            } else {
-                items(albums, key = { it.id }) { a ->
-                    AlbumRow(a, playing = play.album == a.name) { onOpenAlbum(a.id) }
-                }
-            }
-            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
@@ -818,66 +613,11 @@ private fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick:
     }
 }
 
-// ------------------------------------------------------------------ search
-
-@Composable
-private fun SearchScreen(play: PlayState) {
-    val lib by LibraryStore.state.collectAsState()
-    var q by remember { mutableStateOf("") }
-
-    LaunchedEffect(q) { LibraryStore.search(q) }
-
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
-            Text("SEARCH", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    if (q.isEmpty()) {
-                        Text(
-                            "Songs, artists, albums",
-                            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-                            color = Color(0xFF3A3A3E),
-                        )
-                    }
-                    BasicTextField(
-                        value = q,
-                        onValueChange = { q = it },
-                        singleLine = true,
-                        textStyle = androidx.compose.material3.MaterialTheme.typography.headlineSmall.copy(color = Ink),
-                        cursorBrush = SolidColor(Accent),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Hairline()
-            Spacer(Modifier.height(8.dp))
-            Text(
-                if (q.isBlank()) "${lib.trackCount} tracks indexed locally"
-                else "${lib.results.size} results · ${lib.searchMs} ms · on-device",
-                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                color = Dim,
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(lib.results, key = { it.id }) { t ->
-                TrackRow(t, playing = play.itemId == t.id) {
-                    PlayerHolder.play(lib.results, lib.results.indexOf(t))
-                }
-            }
-        }
-    }
-}
-
 // ------------------------------------------------------------------ favourites
 
 @Composable
-private fun FavouritesScreen(lib: LibState, play: PlayState) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+private fun FavouritesScreen(lib: LibState, play: PlayState, state: androidx.compose.foundation.lazy.LazyListState) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
                 Text("FAVOURITES", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
@@ -1178,7 +918,7 @@ private fun NavBar(current: Tab, onSelect: (Tab) -> Unit) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+internal fun SectionLabel(text: String) {
     Text(
         text,
         style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
@@ -1188,7 +928,7 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun PerfFooter(lib: LibState) {
+internal fun PerfFooter(lib: LibState) {
     Column(Modifier.padding(horizontal = 22.dp)) {
         Hairline()
         Spacer(Modifier.height(10.dp))

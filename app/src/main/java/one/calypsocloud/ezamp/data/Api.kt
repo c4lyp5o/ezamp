@@ -133,6 +133,11 @@ object Prefs {
         get() = sp.getString("variant", "art") ?: "art"
         set(v) = sp.edit().putString("variant", v).apply()
 
+    /** Last Library carousel page (ALBUMS, TRACKS, ...), restored on the next launch. */
+    var libPage: Int
+        get() = sp.getInt("libPage", 0)
+        set(v) = sp.edit().putInt("libPage", v).apply()
+
     /**
      * "direct" plays the file as it sits on the server; "saver" asks Jellyfin to transcode to mp3.
      * Downloads follow the same setting, so one switch governs both bytes and storage.
