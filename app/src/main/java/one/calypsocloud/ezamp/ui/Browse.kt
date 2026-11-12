@@ -1,5 +1,6 @@
 package one.calypsocloud.ezamp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -9,10 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -22,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -596,15 +600,27 @@ internal fun ArtistScreen(name: String, play: PlayState, onBack: () -> Unit, onO
 
 // ------------------------------------------------------------------ playlists tab
 
+/**
+ * Favourites lead the list as a permanent playlist (a null entry below), then the server's
+ * music playlists. It is local, so it is there even with no server playlists at all.
+ */
 @Composable
-internal fun PlaylistsScreen(lib: LibState, art: Boolean, state: LazyListState, onOpen: (String) -> Unit) {
+internal fun PlaylistsScreen(
+    lib: LibState,
+    art: Boolean,
+    state: LazyListState,
+    onOpenFavourites: () -> Unit,
+    onOpen: (String) -> Unit,
+) {
+    val entries: List<Playlist?> = listOf(null) + lib.playlists
+    val favCount = "${lib.favourites.size} tracks"
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
                 Text("Playlists", style = MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    if (lib.playlists.isEmpty()) "no music playlists" else "${lib.playlists.size} playlists",
+                    "${entries.size} playlists",
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -612,37 +628,87 @@ internal fun PlaylistsScreen(lib: LibState, art: Boolean, state: LazyListState, 
             }
         }
         if (art) {
-            items(lib.playlists.chunked(2), key = { it.first().id }) { row ->
+            items(entries.chunked(2), key = { it.first()?.id ?: "favourites" }) { row ->
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 22.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    row.forEach { pl -> PlaylistTile(pl, Modifier.weight(1f)) { onOpen(pl.id) } }
+                    row.forEach { pl ->
+                        if (pl == null) {
+                            PlaylistTile("Favourites", favCount, Modifier.weight(1f), cover = { FavouritesArt(it) }, onClick = onOpenFavourites)
+                        } else {
+                            PlaylistTile(pl.name, "${pl.trackCount} tracks", Modifier.weight(1f), cover = {
+                                ArtBox(url = pl.artUri, label = pl.name, corner = 6.dp, modifier = it)
+                            }) { onOpen(pl.id) }
+                        }
+                    }
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         } else {
-            items(lib.playlists, key = { it.id }) { pl -> PlaylistRow(pl) { onOpen(pl.id) } }
+            items(entries, key = { it?.id ?: "favourites" }) { pl ->
+                if (pl == null) {
+                    PlaylistRow("Favourites", favCount, cover = { FavouritesArt(it, corner = 4.dp) }, onClick = onOpenFavourites)
+                } else {
+                    PlaylistRow(pl.name, "${pl.trackCount} tracks", cover = {
+                        ArtBox(url = pl.artUri, label = pl.name, corner = 4.dp, modifier = it)
+                    }) { onOpen(pl.id) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The Favourites cover: no art to fetch, just a drawn heart on the raised surface. A text "♥" at
+ * this size fell back to the red system emoji instead of the accent.
+ */
+@Composable
+internal fun FavouritesArt(modifier: Modifier = Modifier, corner: androidx.compose.ui.unit.Dp = 6.dp) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .background(SurfaceHi, RoundedCornerShape(corner)),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize(0.32f)) {
+            val w = size.width
+            val h = size.height
+            val heart = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.50f, h * 0.88f)
+                cubicTo(w * 0.12f, h * 0.62f, w * 0.00f, h * 0.40f, w * 0.14f, h * 0.22f)
+                cubicTo(w * 0.28f, h * 0.05f, w * 0.46f, h * 0.12f, w * 0.50f, h * 0.28f)
+                cubicTo(w * 0.54f, h * 0.12f, w * 0.72f, h * 0.05f, w * 0.86f, h * 0.22f)
+                cubicTo(w * 1.00f, h * 0.40f, w * 0.88f, h * 0.62f, w * 0.50f, h * 0.88f)
+                close()
+            }
+            drawPath(heart, Accent)
         }
     }
 }
 
 @Composable
-private fun PlaylistTile(pl: Playlist, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PlaylistTile(
+    name: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+    cover: @Composable (Modifier) -> Unit,
+    onClick: () -> Unit,
+) {
     Column(modifier.clickable { onClick() }) {
-        ArtBox(url = pl.artUri, label = pl.name, corner = 6.dp, modifier = Modifier.fillMaxWidth())
+        cover(Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         Text(
-            pl.name,
+            name,
             style = MaterialTheme.typography.titleMedium,
             color = Ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            "${pl.trackCount} tracks",
+            detail,
             style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
             color = Dim,
             maxLines = 1,
@@ -652,7 +718,7 @@ private fun PlaylistTile(pl: Playlist, modifier: Modifier = Modifier, onClick: (
 }
 
 @Composable
-private fun PlaylistRow(pl: Playlist, onClick: () -> Unit) {
+private fun PlaylistRow(name: String, detail: String, cover: @Composable (Modifier) -> Unit, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -660,18 +726,18 @@ private fun PlaylistRow(pl: Playlist, onClick: () -> Unit) {
             .padding(horizontal = 22.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Art(pl.artUri, size = 46.dp, corner = 4.dp, label = pl.name)
+        cover(Modifier.size(46.dp))
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                pl.name,
+                name,
                 style = MaterialTheme.typography.titleMedium,
                 color = Ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                "${pl.trackCount} tracks",
+                detail,
                 style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                 color = Dim,
                 maxLines = 1,

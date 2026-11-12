@@ -38,7 +38,7 @@ import one.calypsocloud.ezamp.player.PlayState
 import one.calypsocloud.ezamp.player.PlayerHolder
 import kotlinx.coroutines.launch
 
-private enum class Tab { Library, Playlists, Favourites }
+private enum class Tab { Library, Playlists }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -52,6 +52,8 @@ fun Root(onSignOut: () -> Unit) {
     var playlistId by remember { mutableStateOf<String?>(null) }
     var artistOpen by remember { mutableStateOf<String?>(null) }
     var genreOpen by remember { mutableStateOf<String?>(null) }
+    // Favourites is a playlist now: pinned first in PLAYLISTS, opened like any other.
+    var favouritesOpen by remember { mutableStateOf(false) }
     var showNow by remember { mutableStateOf(false) }
     var variant by remember { mutableStateOf(Prefs.variant) }
     var playMode by remember { mutableStateOf(Prefs.playMode) }
@@ -101,12 +103,13 @@ fun Root(onSignOut: () -> Unit) {
     // carousel back to ALBUMS. Only a bare Library lets the system take it to the launcher.
     // The settings sheet handles its own back through onDismissRequest.
     val nowOpen = showNow && play.active
-    val bareLibrary = tab == Tab.Library && playlistId == null && albumId == null && artistOpen == null &&
-        genreOpen == null && query.isEmpty() && pager.currentPage == 0
+    val bareLibrary = tab == Tab.Library && playlistId == null && !favouritesOpen && albumId == null &&
+        artistOpen == null && genreOpen == null && query.isEmpty() && pager.currentPage == 0
     androidx.activity.compose.BackHandler(enabled = nowOpen || !bareLibrary) {
         when {
             nowOpen -> showNow = false
             playlistId != null -> playlistId = null
+            favouritesOpen -> favouritesOpen = false
             albumId != null -> albumId = null
             artistOpen != null -> artistOpen = null
             genreOpen != null -> genreOpen = null
@@ -136,17 +139,19 @@ fun Root(onSignOut: () -> Unit) {
                 }
                 if (!imeOpen) {
                     NavBar(tab) { t ->
-                        if (t == tab && albumId == null && playlistId == null && artistOpen == null && genreOpen == null) {
+                        val atRoot = albumId == null && playlistId == null && !favouritesOpen &&
+                            artistOpen == null && genreOpen == null
+                        if (t == tab && atRoot) {
                             // Tapping the tab you are already on goes back to the top of its list.
                             val list = when (t) {
                                 Tab.Library -> lists.forPage(page)
                                 Tab.Playlists -> playlistsList
-                                Tab.Favourites -> favList
                             }
                             scope.launch { list.animateScrollToItem(0) }
                         }
                         albumId = null
                         playlistId = null
+                        favouritesOpen = false
                         artistOpen = null
                         genreOpen = null
                         tab = t
@@ -167,6 +172,7 @@ fun Root(onSignOut: () -> Unit) {
                     play = play,
                     onBack = { playlistId = null },
                 )
+                favouritesOpen -> FavouritesScreen(lib, play, favList) { favouritesOpen = false }
                 albumId != null -> AlbumScreen(
                     albumId = albumId!!,
                     play = play,
@@ -203,10 +209,13 @@ fun Root(onSignOut: () -> Unit) {
                     onSync = { LibraryStore.resync() },
                     onSettings = { showSettings = true },
                 )
-                tab == Tab.Playlists -> PlaylistsScreen(lib, art = variant == "art", state = playlistsList) {
-                    playlistId = it
-                }
-                else -> FavouritesScreen(lib, play, favList)
+                else -> PlaylistsScreen(
+                    lib = lib,
+                    art = variant == "art",
+                    state = playlistsList,
+                    onOpenFavourites = { favouritesOpen = true },
+                    onOpen = { playlistId = it },
+                )
             }
         }
     }
@@ -644,36 +653,58 @@ private fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick:
 // ------------------------------------------------------------------ favourites
 
 @Composable
-private fun FavouritesScreen(lib: LibState, play: PlayState, state: androidx.compose.foundation.lazy.LazyListState) {
-    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
+private fun FavouritesScreen(
+    lib: LibState,
+    play: PlayState,
+    state: androidx.compose.foundation.lazy.LazyListState,
+    onBack: () -> Unit,
+) {
+    val tracks = lib.favourites
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
-                Text("FAVOURITES", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
+            Column(Modifier.padding(horizontal = 22.dp)) {
                 Spacer(Modifier.height(10.dp))
-                Text("Loved", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
-                Spacer(Modifier.height(6.dp))
                 Text(
-                    if (lib.favourites.isEmpty()) "nothing yet" else "${lib.favourites.size} tracks",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    "‹  BACK",
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    color = Dim,
+                    modifier = Modifier.clickable { onBack() }.padding(vertical = 12.dp),
+                )
+                Spacer(Modifier.height(2.dp))
+                FavouritesArt(Modifier.size(200.dp), corner = 10.dp)
+                Spacer(Modifier.height(16.dp))
+                Text("Favourites", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (tracks.isEmpty()) "nothing yet — tap ♡ on any track" else "${tracks.size} tracks",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
-                if (lib.favourites.size > 1) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "PLAY ALL",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                        color = if (tracks.isEmpty()) Mute else Accent,
+                        modifier = Modifier
+                            .clickable(enabled = tracks.isNotEmpty()) { PlayerHolder.play(tracks, 0) }
+                            .padding(vertical = 10.dp),
+                    )
+                    Spacer(Modifier.width(26.dp))
                     Text(
                         "SHUFFLE",
                         style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                        color = Accent,
+                        color = if (tracks.size > 1) Accent else Mute,
                         modifier = Modifier
-                            .clickable { PlayerHolder.playShuffled(lib.favourites) }
+                            .clickable(enabled = tracks.size > 1) { PlayerHolder.playShuffled(tracks) }
                             .padding(vertical = 10.dp),
                     )
                 }
-                Spacer(Modifier.height(if (lib.favourites.size > 1) 8.dp else 18.dp))
+                Spacer(Modifier.height(8.dp))
             }
         }
-        itemsIndexed(lib.favourites, key = { _, t -> t.id }) { i, t ->
-            TrackRow(t, playing = play.itemId == t.id) {
-                PlayerHolder.play(lib.favourites, i)
-            }
+        itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+            TrackRow(t, playing = play.itemId == t.id) { PlayerHolder.play(tracks, i) }
         }
     }
 }
