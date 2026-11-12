@@ -42,6 +42,12 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ Sync on foreground and network change (15-min throttle, manual bypass); conflict-free since the index is read-only. No-network banner with one-tap escape.
 - ✅ Large-library validation: 50k synthetic tracks locally — every scoped query under 10 ms, one index added for the recency sort.
 
+## M3.5 — Open debts ✅ 2026-11-12
+
+- ✅ Playlist download (batch-keyed cancel and cap stop; tracks keep their real album).
+- ✅ JVM unit tests on every gate (34), migration verification against shipped schema snapshots.
+- ✅ Migration 5 for the 0.7.0 recency index that upgraded installs never received.
+
 ## M4 — Desktop (Kotlin Multiplatform) ⬜
 
 - ⬜ Extract the platform-independent core: DTOs, API client, schema, sync logic.
@@ -55,7 +61,7 @@ Established what was actually slow, so the architecture targets a real bottlenec
 ## M6 — Polish ⬜
 
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
-- ⬜ Track-level artists (features/splits) — the artists tab currently groups album artists only: 54 of the 127 Jellyfin knows.
+- ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
 - ⬜ Crossfade, equalizer, sleep timer — only if they can be done without touching the UI thread.
 - ⬜ Accessibility pass: content descriptions on the Canvas icons, dynamic type.
 
@@ -65,4 +71,4 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - **No fork of Finamp.** It would inherit the architecture being escaped.
 - **No web UI.** Compose on Android and desktop covers the platforms that were asked for.
 - **No API key in the app.** Username/password only.
-- **No transcode path in v1.** Direct play covers this library; transcoding is only worth it once a codec outside mp3/flac/ogg actually appears.
+- **No transcode-to-play-anything path.** Direct play is the default; Saver (mp3 transcode) exists to save bandwidth and storage, not to rescue unsupported codecs.

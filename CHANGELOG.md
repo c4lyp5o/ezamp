@@ -2,6 +2,20 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
+## [0.8.0] — 2026-11-12
+
+### Added
+- **Playlist download.** DOWNLOAD on a playlist queues its tracks through the album path; each track keeps its real album, so album badges, STORAGE and downloaded-only mode see them with no schema change. The badge reads `DOWNLOADING n/N`, `DOWNLOAD REST n/N`, `DOWNLOADED n/N`. Cancel and the cap stop act on the request (album or playlist), so stopping one never touches the other. Removal stays per album in STORAGE.
+- **Track-level artists.** The artists tab lists every name credited on a track plus album artists (new `libraryTrackArtist` table, migration 6), so features and splits appear; an artist's albums are the albums holding a track that credits them. Upgraded installs see a one-line hint until the next SYNC fills the credits.
+- **JVM unit tests** — 34, run on every gate: storage cap math, sync throttle, stream and Saver URLs with the seek offset round-trip, download planning, artist credits, and the downloaded-only and artist queries against real SQLite. Test-only dependencies (`junit`, SQLDelight `sqlite-driver`); nothing new in the APK.
+
+### Fixed
+- **The 0.7.0 recency index never reached upgraded installs.** It was added to `Library.sq` only, which runs on fresh installs. Migration 5 creates it; `verifyMigrations` now replays every migration over the shipped schema snapshot (`databases/5.db`) and fails the gate on any drift.
+- **Downloads killed mid-flight stayed "busy" forever.** Rows left QUEUED/RUNNING by a process kill are marked failed (`interrupted`) on start, so RETRY appears.
+
+### Changed
+- Sync throttle and the Saver offset parser moved into testable units (`SyncPolicy`, `JellyfinApi.transcodeOffsetMs`); behaviour unchanged.
+
 ## [0.7.0] — 2026-11-12
 
 ### Added

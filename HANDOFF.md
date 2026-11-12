@@ -36,9 +36,9 @@ Latest measured (release/R8):
 1. **Cold tap is ~312 ms direct, ~678 ms in Saver.** Direct is close to the floor; Saver pays ffmpeg start-up (measured twice). If Saver is used at home, expect the first second to feel softer than Direct.
 2. ~~`start` scrobble can carry `pos=0`~~ — fixed: absolute positions plus a 700 ms delay before the start report; verified `pos=124820ms`.
 3. **Artists are album artists only** — 54 here versus 127 artists Jellyfin knows. Track-level-only artists (features, splits) need their own table from `/Artists`.
-4. ~~**Offline downloads are album-level only**~~ — M3 shipped all of it except playlist-level download: downloaded-only SQL scope + badges + chip + guard (proven on device), STORAGE section with refusing cap + per-album delete, foreground/network sync with throttle + banner, 50k-query validation (all scoped <10 ms). Playlist download stays open.
+4. ~~**Offline downloads are album-level only**~~ — M3 shipped all of it except playlist-level download: downloaded-only SQL scope + badges + chip + guard (proven on device), STORAGE section with refusing cap + per-album delete, foreground/network sync with throttle + banner, 50k-query validation (all scoped <10 ms). Playlist download shipped in 0.8.0.
 5. **CPU while playing is 12%** of one core: decode + `HwBinder`, UI thread idle. Media3 1.9.4 removed `setEnableAudioOffload`, so there is no offload shortcut on this version. Only chase this if battery complaints appear.
-6. **No automated tests.** Perf logging (`ezamp-perf`) plus device assertions are the regression net. Small focused unit tests for `LibraryStore` transforms and `QueueStore` round-tripping would be the cheapest first tests.
+6. ~~**No automated tests.**~~ 0.8.0: 34 JVM tests in `app/src/test` run on every gate (`testDebugUnitTest`), plus `verifyDebugEzampDbMigration`. Not yet covered: `QueueStore` round-trip, sync transforms, any UI.
 
 ## How to build and install
 

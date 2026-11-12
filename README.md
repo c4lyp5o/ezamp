@@ -2,7 +2,7 @@
 
 A fast, local-first Jellyfin music client for Android. ezamp keeps its own index of your library on the device; Jellyfin is a sync source and a file host, never part of the browsing path. Part of the `ez-*` family alongside ezmail, eziarr and ezhost.
 
-**Status: 0.6.0** — library, search, artists, favourites, playlists, playback, queue restore and scrobbling are working on device. Offline downloads are working; the downloaded-only mode and playlist-level downloads are next ([ROADMAP.md](ROADMAP.md)). Verified 2026-11-11 on a Nothing A063 (Android 15) against Jellyfin 12.4.0.
+**Status: 0.8.0** — library, search, artists (including features), favourites, playlists, gapless playback in Direct and Saver, queue restore and scrobbling are working on device. Offline: album and playlist downloads, downloaded-only mode, a storage cap, and sync on foreground/network. Desktop is next ([ROADMAP.md](ROADMAP.md)). Verified 2026-11-11 on a Nothing A063 (Android 15) against Jellyfin 12.4.0.
 
 ## Why this exists
 

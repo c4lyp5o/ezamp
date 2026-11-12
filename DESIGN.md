@@ -38,11 +38,12 @@ SQLite through SQLDelight 2.4.1 (`app/src/main/sqldelight/.../Library.sq`). Tabl
 | `libraryTrack` | one row per audio item | `albumId`, `haystack` (lowercased `title + artist + album`), `favourite`, `container`, `durationMs` |
 | `libraryPlaylist` | one row per playlist holding music | `trackCount` = **stored audio rows**, `remoteCount` = server's `ChildCount` (change detection) |
 | `libraryPlaylistTrack` | playlist membership | `(playlistId, trackId, position)` |
+| `libraryTrackArtist` | every name credited on a track, plus its album artist | `(trackId, artist)`; drives the artists tab |
 | `libraryDownload` | offline copies (own table; `mime` captured at fetch time) | `state` (0 queued, 1 downloading, 2 done, 3 failed), `bytes`, `totalBytes`, `path` |
 
 Indexes cover `libraryTrack(albumId)`, `libraryTrack(sortName)`, `libraryAlbum(sortName)` and `libraryPlaylistTrack(playlistId, position)`.
 
-**Migrations.** `1.sqm` adds the playlist tables, `2.sqm` adds `remoteCount`, `3.sqm` adds `libraryDownload`. Every schema change needs both the `.sq` edit and the next `.sqm`; SQLDelight derives the schema version from the migration count, so a `.sq`-only change crashes existing installs on the first query.
+**Migrations.** `1.sqm` adds the playlist tables, `2.sqm` adds `remoteCount`, `3.sqm` adds `libraryDownload`, `4.sqm` its `mime`, `5.sqm` the `libraryAlbum(created)` index, `6.sqm` `libraryTrackArtist`. Every schema change needs both the `.sq` edit and the next `.sqm`; SQLDelight derives the schema version from the migration count. A `.sq`-only change either crashes existing installs or — for an index — silently never reaches them (0.7.0 shipped exactly that). The gate now catches both: `verifyMigrations` replays the migrations over `src/main/sqldelight/databases/5.db`, a snapshot of the shipped v5 schema, and fails on any difference from a fresh `Library.sq`. When shipping a schema change, add the next snapshot with `generateDebugEzampDbSchema`. A `.sqm` is compiled only against tables earlier migrations created, so one that touches a pre-migration table (`libraryAlbum`, `libraryTrack`) must restate it with `CREATE TABLE IF NOT EXISTS` (see `5.sqm`).
 
 **Search** is `LIKE '%needle%'` against a pre-lowercased `haystack` column — no `LOWER()` per row, no FTS table yet. 5–7 ms over 5,535 rows.
 
