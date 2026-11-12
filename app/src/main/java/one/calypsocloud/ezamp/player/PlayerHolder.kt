@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import one.calypsocloud.ezamp.data.LibraryStore
 import one.calypsocloud.ezamp.data.Prefs
 import one.calypsocloud.ezamp.data.Track
@@ -90,17 +91,19 @@ object PlayerHolder {
                 pending = null
                 play(tracks, index)
             } else {
-                restore(c)
+                scope.launch { restore(c) }
             }
             startTicker()
         }, MoreExecutors.directExecutor())
     }
 
     /** Rebuild the last queue without starting audio, so the app reopens where he left it. */
-    private fun restore(c: MediaController) {
+    private suspend fun restore(c: MediaController) {
         if (c.mediaItemCount > 0) return
         val ctx = appCtx ?: return
-        val saved = QueueStore.load(ctx) ?: return
+        // File parsing (up to 2,000 tracks) stays off Main; the controller is touched only on Main.
+        val saved = withContext(Dispatchers.IO) { QueueStore.load(ctx) } ?: return
+        if (c.mediaItemCount > 0 || pending != null) return
         if (saved.tracks.isEmpty()) return
         queue = saved.tracks
         savedIndex = saved.index
@@ -192,7 +195,7 @@ object PlayerHolder {
         c.stop()
         c.clearMediaItems()
         queue = emptyList()
-        appCtx?.let { QueueStore.clear(it) }
+        appCtx?.let { QueueStore.enqueue(it, emptyList(), 0, 0) }
         _state.value = PlayState()
     }
 
@@ -209,7 +212,7 @@ object PlayerHolder {
         lastSaveAt = now
         val track = queue.getOrNull(idx)
         val base = if (track != null && isSaver(track.id)) seekBase else 0L
-        QueueStore.save(ctx, queue, idx, (base + c.currentPosition).coerceAtLeast(0))
+        QueueStore.enqueue(ctx, queue, idx, (base + c.currentPosition).coerceAtLeast(0))
     }
 
     fun seekToFraction(f: Float) {
