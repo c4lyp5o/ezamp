@@ -48,6 +48,14 @@ class ScopeQueriesTest {
         dl("t5", "A3", queued, 0)
         dl("t6", "A3", running, 50)
         dl("t7", "A3", failed, 0)
+        // Credits as sync writes them: each track's album artist, plus a guest on t2 and t8.
+        mapOf("A1" to "Artist One", "A2" to "Artist Two", "A3" to "Artist Three", "A4" to "Artist One")
+            .let { byAlbum ->
+                listOf("t1" to "A1", "t2" to "A1", "t3" to "A2", "t4" to "A2", "t5" to "A3", "t6" to "A3", "t7" to "A3", "t8" to "A4")
+                    .forEach { (t, a) -> q.upsertTrackArtist(t, byAlbum.getValue(a)) }
+            }
+        q.upsertTrackArtist("t2", "Guest")
+        q.upsertTrackArtist("t8", "Guest")
     }
 
     @After fun tearDown() = driver.close()
@@ -76,11 +84,28 @@ class ScopeQueriesTest {
         assertEquals(8L, q.trackCount().executeAsOne())
     }
 
-    @Test fun artistsInScopeCountOnlyAlbumsWithSomethingFinished() {
-        // Artist One has A1 (done) and A4 (untouched): one album in scope, not two.
+    @Test fun artistsCountEveryCreditedNameNotJustAlbumArtists() {
+        // Guest is credited on one track of A1 and one of A4 but is no album's artist.
+        val rows = q.artists().executeAsList().associate { it.artist to it.albumCount }
+        assertEquals(
+            mapOf("Artist One" to 2L, "Artist Three" to 1L, "Artist Two" to 1L, "Guest" to 2L),
+            rows,
+        )
+        assertEquals(listOf("A1", "A4"), q.albumsByArtist("Guest").executeAsList().map { it.id })
+    }
+
+    @Test fun artistsInScopeCountOnlyThroughFinishedTracks() {
+        // Artist One: A1 done, A4 untouched -> 1. Guest: t2 done (A1), t8 not downloaded -> 1.
+        // Artist Two: t3 done -> in. Artist Three: nothing finished -> out.
         val rows = q.scopedArtists().executeAsList().associate { it.artist to it.albumCount }
-        assertEquals(mapOf("Artist One" to 1L, "Artist Two" to 1L), rows)
+        assertEquals(mapOf("Artist One" to 1L, "Artist Two" to 1L, "Guest" to 1L), rows)
         assertEquals(listOf("A1"), q.scopedAlbumsByArtist("Artist One").executeAsList().map { it.id })
+        assertEquals(listOf("A1"), q.scopedAlbumsByArtist("Guest").executeAsList().map { it.id })
+    }
+
+    @Test fun artistsAreOrderedIgnoringCase() {
+        q.upsertTrackArtist("t1", "aaron")
+        assertEquals("aaron", q.artists().executeAsList().first().artist)
     }
 
     @Test fun playlistTracksInScopeKeepPlaylistOrderAndDropUnplayable() {

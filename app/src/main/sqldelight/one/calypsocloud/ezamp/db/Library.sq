@@ -73,13 +73,41 @@ SELECT * FROM libraryTrack WHERE favourite = 1 ORDER BY title LIMIT 500;
 searchTracks:
 SELECT * FROM libraryTrack WHERE haystack LIKE :needle LIMIT 300;
 
--- Artists are derived from the album rows: album artist is the grouping key Jellyfin gives us.
+-- Every name credited on a track (Jellyfin's Artists list) plus its album artist, one row each.
+-- Album artist alone hid every feature and split: 54 of the 127 artists the server knows.
+CREATE TABLE libraryTrackArtist (
+    trackId TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    PRIMARY KEY (trackId, artist)
+);
+
+CREATE INDEX libraryTrackArtist_artist ON libraryTrackArtist(artist);
+
+upsertTrackArtist:
+INSERT OR IGNORE INTO libraryTrackArtist(trackId, artist) VALUES (?, ?);
+
+clearTrackArtists:
+DELETE FROM libraryTrackArtist;
+
+trackArtistCount:
+SELECT COUNT(*) FROM libraryTrackArtist;
+
+-- An artist's albums are the albums holding at least one track that credits them.
 artists:
-SELECT artist, COUNT(*) AS albumCount FROM libraryAlbum
-WHERE artist != '' GROUP BY artist ORDER BY artist;
+SELECT ta.artist AS artist, COUNT(DISTINCT t.albumId) AS albumCount
+FROM libraryTrackArtist ta
+JOIN libraryTrack t ON t.id = ta.trackId
+WHERE t.albumId IS NOT NULL
+GROUP BY ta.artist ORDER BY ta.artist COLLATE NOCASE;
 
 albumsByArtist:
-SELECT * FROM libraryAlbum WHERE artist = ? ORDER BY sortName;
+SELECT a.* FROM libraryAlbum a
+WHERE EXISTS (
+    SELECT 1 FROM libraryTrackArtist ta
+    JOIN libraryTrack t ON t.id = ta.trackId
+    WHERE ta.artist = ? AND t.albumId = a.id
+)
+ORDER BY a.sortName;
 
 CREATE TABLE libraryPlaylist (
     id TEXT NOT NULL PRIMARY KEY,
@@ -231,22 +259,22 @@ JOIN libraryPlaylistTrack p ON p.trackId = t.id
 WHERE p.playlistId = ?
 ORDER BY p.position;
 
+-- In scope an artist counts only through tracks that actually finished downloading.
 scopedArtists:
-SELECT a.artist AS artist, COUNT(*) AS albumCount
-FROM libraryAlbum a
-WHERE a.artist != ''
-AND EXISTS (
-    SELECT 1 FROM libraryDownload d
-    WHERE d.albumId = a.id AND d.state = 2
-)
-GROUP BY a.artist ORDER BY a.artist;
+SELECT ta.artist AS artist, COUNT(DISTINCT t.albumId) AS albumCount
+FROM libraryTrackArtist ta
+JOIN libraryTrack t ON t.id = ta.trackId
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+WHERE t.albumId IS NOT NULL
+GROUP BY ta.artist ORDER BY ta.artist COLLATE NOCASE;
 
 scopedAlbumsByArtist:
 SELECT a.* FROM libraryAlbum a
-WHERE a.artist = ?
-AND EXISTS (
-    SELECT 1 FROM libraryDownload d
-    WHERE d.albumId = a.id AND d.state = 2
+WHERE EXISTS (
+    SELECT 1 FROM libraryTrackArtist ta
+    JOIN libraryTrack t ON t.id = ta.trackId
+    JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+    WHERE ta.artist = ? AND t.albumId = a.id
 )
 ORDER BY a.sortName;
 

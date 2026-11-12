@@ -221,6 +221,7 @@ object LibraryStore {
             queries.transaction {
                 queries.clearTracks()
                 queries.clearAlbums()
+                queries.clearTrackArtists()
                 albumsRaw.forEach { dto ->
                     queries.upsertAlbum(
                         id = dto.Id,
@@ -251,6 +252,9 @@ object LibraryStore {
                         favourite = if (favIds.contains(dto.Id)) 1L else 0L,
                         haystack = "${dto.Name} $artist $album".lowercase(),
                     )
+                    ArtistCredits.of(dto.Artists, dto.AlbumArtist).forEach { name ->
+                        queries.upsertTrackArtist(dto.Id, name)
+                    }
                 }
             }
             android.util.Log.i(
@@ -504,6 +508,11 @@ object LibraryStore {
             q().artists().executeAsList().map { Artist(it.artist, it.albumCount.toInt()) }
         }
         rows
+    }
+
+    /** Upgraded from 0.7.0: tracks are indexed but their artist credits arrive with the next sync. */
+    suspend fun artistsNeedResync(): Boolean = withContext(Dispatchers.IO) {
+        q().trackArtistCount().executeAsOne() == 0L && q().trackCount().executeAsOne() > 0L
     }
 
     suspend fun albumsByArtist(name: String): List<Album> = withContext(Dispatchers.IO) {

@@ -469,8 +469,14 @@ private fun ArtistsScreen(play: PlayState, onOpenAlbum: (String) -> Unit) {
     var artists by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Artist>>(emptyList()) }
     var open by remember { mutableStateOf<String?>(null) }
     var albums by remember { mutableStateOf<List<Album>>(emptyList()) }
+    var needResync by remember { mutableStateOf(false) }
+    val lib by LibraryStore.state.collectAsState()
 
-    LaunchedEffect(Unit) { artists = LibraryStore.artists() }
+    // Keyed on the last sync so the list refills by itself once a resync lands.
+    LaunchedEffect(lib.lastSync) {
+        artists = LibraryStore.artists()
+        needResync = LibraryStore.artistsNeedResync()
+    }
     LaunchedEffect(open) {
         albums = open?.let { LibraryStore.albumsByArtist(it) } ?: emptyList()
     }
@@ -486,6 +492,14 @@ private fun ArtistsScreen(play: PlayState, onOpenAlbum: (String) -> Unit) {
             if (open == null) {
                 Text("Artists", style = androidx.compose.material3.MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(6.dp))
+                if (needResync) {
+                    Text(
+                        "Featured artists arrive with the next sync — tap SYNC on Library.",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = Ez.Warn,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 Text(
                     "${artists.size} artists",
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),

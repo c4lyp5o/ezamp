@@ -1,0 +1,8 @@
+-- Track-level artists. Filled by the next sync; until then the artists tab shows a resync hint.
+CREATE TABLE libraryTrackArtist (
+    trackId TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    PRIMARY KEY (trackId, artist)
+);
+
+CREATE INDEX libraryTrackArtist_artist ON libraryTrackArtist(artist);
