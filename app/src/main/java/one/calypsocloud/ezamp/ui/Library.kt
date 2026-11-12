@@ -477,6 +477,9 @@ private fun SettingsSheet(
             ) { onPlayMode("saver") }
 
             Spacer(Modifier.height(22.dp))
+            SoundSection()
+
+            Spacer(Modifier.height(22.dp))
             Hairline()
             Spacer(Modifier.height(20.dp))
 

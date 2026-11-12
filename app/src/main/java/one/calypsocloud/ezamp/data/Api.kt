@@ -182,6 +182,16 @@ object Prefs {
         get() = sp.getBoolean("dlonly", false)
         set(v) = sp.edit().putBoolean("dlonly", v).apply()
 
+    /** Equalizer: -2 off, -1 custom, else the phone's preset index (see player.Eq). */
+    var eqMode: Int
+        get() = sp.getInt("eqmode", -2)
+        set(v) = sp.edit().putInt("eqmode", v).apply()
+
+    /** Custom equalizer curve, millibels per band, comma-separated. */
+    var eqLevels: String
+        get() = sp.getString("eqlevels", "") ?: ""
+        set(v) = sp.edit().putString("eqlevels", v).apply()
+
     /** Stable per-install id; Jellyfin ties sessions and playback reports to it. */
     val deviceId: String
         get() = sp.getString("deviceid", null) ?: java.util.UUID.randomUUID().toString().also {

@@ -122,6 +122,10 @@ class PlaybackService : MediaSessionService() {
                 }
             }
 
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                Eq.attach(audioSessionId)
+            }
+
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_BUFFERING) {
                     android.util.Log.i("ezamp-perf", "buffering at ${absolutePosition()}ms")
@@ -134,6 +138,7 @@ class PlaybackService : MediaSessionService() {
 
         player = exo
         SleepTimer.attach(exo)
+        Eq.attach(exo.audioSessionId)
         // Without a session activity the notification has nothing to fire, so tapping it did nothing.
         val open = android.app.PendingIntent.getActivity(
             this,
@@ -217,6 +222,7 @@ class PlaybackService : MediaSessionService() {
             p.currentMediaItem?.mediaId?.let { report("stop", it, p.currentPosition.coerceAtLeast(0), false) }
         }
         player?.let { SleepTimer.detach(it) }
+        Eq.release()
         scope.cancel()
         session?.let { s ->
             s.player.release()
