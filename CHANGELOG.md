@@ -2,7 +2,7 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
-## [Unreleased]
+## [0.9.0] — 2026-11-12
 
 ### Added
 - **Library carousel.** A swipeable label strip under the header (ALBUMS · TRACKS · ARTISTS · GENRES); only the strip swipes, one page per swipe, and tapping a label jumps. The last page is restored on launch.
