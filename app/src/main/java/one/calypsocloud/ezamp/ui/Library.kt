@@ -984,10 +984,9 @@ private fun MiniPlayer(play: PlayState, onOpen: () -> Unit, onToggle: () -> Unit
                 )
                 Spacer(Modifier.width(10.dp))
             }
+            // Both buttons pad themselves out to 48 dp touch targets, so no spacers between them.
             PlayPause(playing = play.playing, size = 36.dp) { onToggle() }
-            Spacer(Modifier.width(10.dp))
             SkipGlyph(next = true, size = 28.dp) { PlayerHolder.next() }
-            Spacer(Modifier.width(8.dp))
         }
     }
 }

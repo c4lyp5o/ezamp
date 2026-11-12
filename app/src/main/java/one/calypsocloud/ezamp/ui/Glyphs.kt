@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 
+/** Android's recommended minimum touch target. */
+private val MIN_TOUCH = 48.dp
+
 /**
  * A short key-press tick for transport controls. View haptics need no VIBRATE permission and follow
  * the phone's own "Touch feedback" setting, so listeners who turned it off feel nothing.
@@ -41,8 +44,9 @@ internal fun rememberTap(): () -> Unit {
 fun PlayPause(playing: Boolean, size: Dp = 56.dp, tint: Color = Ink, onClick: () -> Unit) {
     val tap = rememberTap()
     Box(
+        // The drawing stays [size]; the touch target is at least Android's recommended 48 dp.
         modifier = Modifier
-            .size(size)
+            .size(maxOf(size, MIN_TOUCH))
             .clickable(role = androidx.compose.ui.semantics.Role.Button) { tap(); onClick() }
             .semantics { contentDescription = if (playing) "Pause" else "Play" },
         contentAlignment = Alignment.Center,
@@ -72,7 +76,7 @@ fun SkipGlyph(next: Boolean, size: Dp = 34.dp, tint: Color = Dim, onClick: () ->
     val tap = rememberTap()
     Box(
         modifier = Modifier
-            .size(size)
+            .size(maxOf(size, MIN_TOUCH))
             .clickable(role = androidx.compose.ui.semantics.Role.Button) { tap(); onClick() }
             .semantics { contentDescription = if (next) "Next track" else "Previous track" },
         contentAlignment = Alignment.Center,
