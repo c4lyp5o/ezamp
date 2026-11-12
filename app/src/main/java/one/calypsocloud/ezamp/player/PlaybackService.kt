@@ -108,6 +108,20 @@ class PlaybackService : MediaSessionService() {
                 }
             }
 
+            // ExoPlayer's shuffle order is random over the whole queue, so the current track can
+            // land mid-order and everything "before" it never plays. Keep the current track first
+            // whenever shuffle turns on or the queue is replaced. No-op when it already is first,
+            // which also stops our own setShuffleOrder from re-triggering this.
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                if (shuffleModeEnabled) currentFirst(exo)
+            }
+
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && exo.shuffleModeEnabled) {
+                    currentFirst(exo)
+                }
+            }
+
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_BUFFERING) {
                     android.util.Log.i("ezamp-perf", "buffering at ${absolutePosition()}ms")
@@ -129,6 +143,21 @@ class PlaybackService : MediaSessionService() {
         )
         session = MediaSession.Builder(this, exo).setSessionActivity(open).build()
         startReporting()
+    }
+
+    private fun currentFirst(exo: ExoPlayer) {
+        val n = exo.mediaItemCount
+        if (n < 2) return
+        val cur = exo.currentMediaItemIndex
+        if (exo.currentTimeline.getFirstWindowIndex(true) == cur) return
+        val rest = (0 until n).filter { it != cur }.shuffled()
+        exo.setShuffleOrder(
+            androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder(
+                intArrayOf(cur) + rest.toIntArray(),
+                System.nanoTime(),
+            ),
+        )
+        android.util.Log.i("ezamp-perf", "shuffle order: current first of $n")
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

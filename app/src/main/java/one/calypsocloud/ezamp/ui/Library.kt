@@ -2,6 +2,7 @@ package one.calypsocloud.ezamp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
@@ -348,6 +349,15 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
                     )
                     Spacer(Modifier.width(26.dp))
                     Text(
+                        "SHUFFLE",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                        color = if (tracks.size > 1) Accent else Mute,
+                        modifier = Modifier
+                            .clickable(enabled = tracks.size > 1) { PlayerHolder.playShuffled(tracks) }
+                            .padding(vertical = 10.dp),
+                    )
+                    Spacer(Modifier.width(26.dp))
+                    Text(
                         dlLabel,
                         style = androidx.compose.material3.MaterialTheme.typography.labelMedium
                             .copy(fontFeatureSettings = "tnum"),
@@ -629,7 +639,17 @@ private fun FavouritesScreen(lib: LibState, play: PlayState, state: androidx.com
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                     color = Dim,
                 )
-                Spacer(Modifier.height(18.dp))
+                if (lib.favourites.size > 1) {
+                    Text(
+                        "SHUFFLE",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable { PlayerHolder.playShuffled(lib.favourites) }
+                            .padding(vertical = 10.dp),
+                    )
+                }
+                Spacer(Modifier.height(if (lib.favourites.size > 1) 8.dp else 18.dp))
             }
         }
         itemsIndexed(lib.favourites, key = { _, t -> t.id }) { i, t ->
@@ -719,6 +739,15 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                         style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                         color = Accent,
                         modifier = Modifier.clickable { PlayerHolder.play(tracks, 0) },
+                    )
+                    Spacer(Modifier.width(18.dp))
+                    Text(
+                        "SHUFFLE",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = if (tracks.size > 1) Accent else Mute,
+                        modifier = Modifier
+                            .clickable(enabled = tracks.size > 1) { PlayerHolder.playShuffled(tracks) }
+                            .padding(vertical = 10.dp),
                     )
                     Spacer(Modifier.width(18.dp))
                     Text(
@@ -849,11 +878,27 @@ fun TrackRow(t: Track, playing: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun MiniPlayer(play: PlayState, onOpen: () -> Unit, onToggle: () -> Unit) {
+    // Swipe left for next, right for previous; the row follows the finger and springs back.
+    var slide by remember { mutableStateOf(0f) }
+    val scope = rememberCoroutineScope()
+    val skipAt = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
     Column {
         Hairline()
         Row(
             Modifier
                 .fillMaxWidth()
+                .offset { androidx.compose.ui.unit.IntOffset(slide.toInt(), 0) }
+                .draggable(
+                    orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
+                    state = androidx.compose.foundation.gestures.rememberDraggableState { dx -> slide += dx },
+                    onDragStopped = {
+                        when {
+                            slide < -skipAt -> PlayerHolder.next()
+                            slide > skipAt -> PlayerHolder.prev()
+                        }
+                        scope.launch { androidx.compose.animation.core.animate(slide, 0f) { v, _ -> slide = v } }
+                    },
+                )
                 .clickable { onOpen() }
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,

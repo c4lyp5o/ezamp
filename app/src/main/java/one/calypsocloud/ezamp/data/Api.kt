@@ -133,6 +133,15 @@ object Prefs {
         get() = sp.getString("variant", "art") ?: "art"
         set(v) = sp.edit().putString("variant", v).apply()
 
+    /** Player shuffle and repeat (Player.REPEAT_MODE_*), reapplied whenever the controller connects. */
+    var shuffle: Boolean
+        get() = sp.getBoolean("shuffle", false)
+        set(v) = sp.edit().putBoolean("shuffle", v).apply()
+
+    var repeat: Int
+        get() = sp.getInt("repeat", 0)
+        set(v) = sp.edit().putInt("repeat", v).apply()
+
     /** Last Library carousel page (ALBUMS, TRACKS, ...), restored on the next launch. */
     var libPage: Int
         get() = sp.getInt("libPage", 0)

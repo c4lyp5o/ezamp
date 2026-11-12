@@ -2,6 +2,8 @@ package one.calypsocloud.ezamp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -13,11 +15,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import one.calypsocloud.ezamp.player.PlayState
 import one.calypsocloud.ezamp.player.PlayerHolder
+import kotlinx.coroutines.launch
 
 @Composable
 fun NowPlaying(play: PlayState, onClose: () -> Unit) {
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableStateOf(0f) }
+    // Swipe down to close: the screen follows the finger and springs back if it was not far enough.
+    var pull by remember { mutableStateOf(0f) }
+    val scope = rememberCoroutineScope()
+    val closeAt = with(androidx.compose.ui.platform.LocalDensity.current) { 140.dp.toPx() }
 
     DisposableEffect(Unit) {
         PlayerHolder.setPositionTracking(true)
@@ -33,6 +40,18 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
+            .offset { androidx.compose.ui.unit.IntOffset(0, pull.toInt()) }
+            .draggable(
+                orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                state = rememberDraggableState { dy -> pull = (pull + dy).coerceAtLeast(0f) },
+                onDragStopped = {
+                    if (pull > closeAt) {
+                        onClose()
+                    } else {
+                        scope.launch { androidx.compose.animation.core.animate(pull, 0f) { v, _ -> pull = v } }
+                    }
+                },
+            )
             .background(Bg)
             .statusBarsPadding()
             .navigationBarsPadding()
@@ -117,14 +136,18 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
         Spacer(Modifier.height(18.dp))
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SkipGlyph(next = false, size = 34.dp) { PlayerHolder.prev() }
-            Spacer(Modifier.width(34.dp))
-            PlayPause(playing = play.playing, size = 68.dp) { PlayerHolder.toggle() }
-            Spacer(Modifier.width(34.dp))
-            SkipGlyph(next = true, size = 34.dp) { PlayerHolder.next() }
+            ShuffleGlyph(on = play.shuffle) { PlayerHolder.toggleShuffle() }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SkipGlyph(next = false, size = 34.dp) { PlayerHolder.prev() }
+                Spacer(Modifier.width(30.dp))
+                PlayPause(playing = play.playing, size = 68.dp) { PlayerHolder.toggle() }
+                Spacer(Modifier.width(30.dp))
+                SkipGlyph(next = true, size = 34.dp) { PlayerHolder.next() }
+            }
+            RepeatGlyph(mode = play.repeat) { PlayerHolder.cycleRepeat() }
         }
 
         Spacer(Modifier.height(10.dp))

@@ -13,7 +13,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -82,6 +87,89 @@ private fun drawSkip(scope: DrawScope, next: Boolean, tint: Color) {
             Size(w * 0.06f, h * 0.48f),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.02f),
         )
+    }
+}
+
+/** Two crossing arrows. Accent when on. */
+@Composable
+fun ShuffleGlyph(on: Boolean, size: Dp = 30.dp, onClick: () -> Unit) {
+    val tint = if (on) Accent else Mute
+    Box(
+        modifier = Modifier
+            .size(size + 14.dp)
+            .clickable { onClick() }
+            .semantics { contentDescription = if (on) "Shuffle on" else "Shuffle off" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(size)) {
+            val w = this.size.width
+            val h = this.size.height
+            val stroke = Stroke(width = w * 0.07f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            val a = Path().apply {
+                moveTo(w * 0.16f, h * 0.32f); lineTo(w * 0.36f, h * 0.32f)
+                lineTo(w * 0.62f, h * 0.68f); lineTo(w * 0.82f, h * 0.68f)
+            }
+            val b = Path().apply {
+                moveTo(w * 0.16f, h * 0.68f); lineTo(w * 0.36f, h * 0.68f)
+                lineTo(w * 0.62f, h * 0.32f); lineTo(w * 0.82f, h * 0.32f)
+            }
+            drawPath(a, tint, style = stroke)
+            drawPath(b, tint, style = stroke)
+            arrowHead(this, w * 0.86f, h * 0.32f, right = true, tint)
+            arrowHead(this, w * 0.86f, h * 0.68f, right = true, tint)
+        }
+    }
+}
+
+/** A loop of two arrows; repeat-one adds a dot in the middle. Accent unless off. */
+@Composable
+fun RepeatGlyph(mode: Int, size: Dp = 30.dp, onClick: () -> Unit) {
+    // Player.REPEAT_MODE_OFF = 0, _ONE = 1, _ALL = 2.
+    val tint = if (mode == 0) Mute else Accent
+    Box(
+        modifier = Modifier
+            .size(size + 14.dp)
+            .clickable { onClick() }
+            .semantics {
+                contentDescription = when (mode) {
+                    1 -> "Repeat one"
+                    2 -> "Repeat all"
+                    else -> "Repeat off"
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(size)) {
+            val w = this.size.width
+            val h = this.size.height
+            val stroke = Stroke(width = w * 0.07f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            val top = Path().apply {
+                moveTo(w * 0.20f, h * 0.58f); lineTo(w * 0.20f, h * 0.34f); lineTo(w * 0.74f, h * 0.34f)
+            }
+            val bottom = Path().apply {
+                moveTo(w * 0.80f, h * 0.42f); lineTo(w * 0.80f, h * 0.66f); lineTo(w * 0.26f, h * 0.66f)
+            }
+            drawPath(top, tint, style = stroke)
+            drawPath(bottom, tint, style = stroke)
+            arrowHead(this, w * 0.80f, h * 0.34f, right = true, tint)
+            arrowHead(this, w * 0.20f, h * 0.66f, right = false, tint)
+            if (mode == 1) drawCircle(tint, radius = w * 0.07f, center = Offset(w * 0.5f, h * 0.5f))
+        }
+    }
+}
+
+private fun arrowHead(scope: DrawScope, x: Float, y: Float, right: Boolean, tint: Color) {
+    with(scope) {
+        val s = size.width * 0.11f
+        val p = Path().apply {
+            if (right) {
+                moveTo(x, y); lineTo(x - s, y - s * 0.9f); lineTo(x - s, y + s * 0.9f)
+            } else {
+                moveTo(x, y); lineTo(x + s, y - s * 0.9f); lineTo(x + s, y + s * 0.9f)
+            }
+            close()
+        }
+        drawPath(p, tint)
     }
 }
 

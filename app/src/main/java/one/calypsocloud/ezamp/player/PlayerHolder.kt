@@ -38,6 +38,9 @@ data class PlayState(
     val transcoding: Boolean = false,
     /** Transient refusal reason, set when play() declines (e.g. offline mode). Cleared on next play. */
     val notice: String? = null,
+    val shuffle: Boolean = false,
+    /** Player.REPEAT_MODE_OFF / _ALL / _ONE. */
+    val repeat: Int = Player.REPEAT_MODE_OFF,
 ) {
     val active: Boolean get() = itemId != null
 }
@@ -76,6 +79,8 @@ object PlayerHolder {
         future.addListener({
             val c = runCatching { future.get() }.getOrNull() ?: return@addListener
             controller = c
+            c.shuffleModeEnabled = Prefs.shuffle
+            c.repeatMode = Prefs.repeat
             c.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) = publish(player)
             })
@@ -150,6 +155,33 @@ object PlayerHolder {
     fun toggle() {
         val c = controller ?: return
         if (c.isPlaying) c.pause() else c.play()
+    }
+
+    fun toggleShuffle() {
+        val c = controller ?: return
+        val on = !c.shuffleModeEnabled
+        c.shuffleModeEnabled = on
+        Prefs.shuffle = on
+    }
+
+    /** off -> all -> one -> off. */
+    fun cycleRepeat() {
+        val c = controller ?: return
+        val next = when (c.repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+        c.repeatMode = next
+        Prefs.repeat = next
+    }
+
+    /** SHUFFLE on a list: shuffle mode on, start anywhere. The service puts that track first in the order. */
+    fun playShuffled(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        Prefs.shuffle = true
+        controller?.shuffleModeEnabled = true
+        play(tracks, tracks.indices.random())
     }
 
     fun next() = controller?.takeIf { it.hasNextMediaItem() }?.seekToNextMediaItem()
@@ -228,6 +260,8 @@ object PlayerHolder {
             artUri = md?.artworkUri?.toString(),
             transcoding = track != null && isSaver(track.id),
             index = idx,
+            shuffle = p.shuffleModeEnabled,
+            repeat = p.repeatMode,
         )
         if (!firstAudioReported && p.isPlaying && tapAt > 0) {
             firstAudioReported = true
