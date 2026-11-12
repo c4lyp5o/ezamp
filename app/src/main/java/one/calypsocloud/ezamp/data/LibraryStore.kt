@@ -110,6 +110,34 @@ object LibraryStore {
     private val _state = MutableStateFlow(LibState())
     val state: StateFlow<LibState> = _state
 
+    private val _online = MutableStateFlow(true)
+    /** Last known network state, fed by the Activity's NetworkCallback. UI reads, never sets. */
+    val online: StateFlow<Boolean> = _online
+
+    fun setOnline(up: Boolean) {
+        if (_online.value == up) return
+        _online.value = up
+        android.util.Log.i("ezamp-sync", if (up) "network up" else "network down")
+        if (up) foreground()
+    }
+
+    /**
+     * Foreground entry: sync if due. Due = authed + online + 15 min since the last
+     * successful sync. Manual SYNC bypasses this and calls resync() directly.
+     */
+    fun foreground() {
+        val uid = Prefs.userId ?: return
+        if (!_online.value) return
+        if (_state.value.syncing) return
+        val elapsed = System.currentTimeMillis() - Prefs.lastSyncMs
+        if (Prefs.lastSyncMs > 0 && elapsed < SYNC_THROTTLE_MS) return
+        android.util.Log.i("ezamp-sync", "foreground sync (elapsed=${elapsed / 1000}s)")
+        scope.launch { sync(uid) }
+    }
+
+    /** Minimum gap between automatic syncs. Manual SYNC ignores this. */
+    private const val SYNC_THROTTLE_MS = 15 * 60 * 1000L
+
     private var api: JellyfinApi? = null
     private var db: EzampDb? = null
     private var searchSeq = 0L
@@ -236,6 +264,7 @@ object LibraryStore {
             // Publish the library before touching playlists: browsing is usable from here on.
             val stamp = Instant.now().toString()
             Prefs.lastSync = stamp
+            Prefs.lastSyncMs = System.currentTimeMillis()
             refresh(stamp, tookMs)
 
             syncPlaylists(a, userId, queries, known, t0)

@@ -24,9 +24,28 @@ import one.calypsocloud.ezamp.ui.Root
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var connectivity: android.net.ConnectivityManager
+    private val networkCb = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) {
+            LibraryStore.setOnline(true)
+        }
+        override fun onLost(network: android.net.Network) {
+            LibraryStore.setOnline(false)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        connectivity = getSystemService(android.net.ConnectivityManager::class.java)
+        try {
+            connectivity.registerDefaultNetworkCallback(networkCb)
+        } catch (e: Exception) {
+            android.util.Log.w("ezamp-sync", "network callback not registered: ${e.message}")
+        }
+        val active = connectivity.activeNetworkInfo
+        LibraryStore.setOnline(active == null || active.isConnected)
 
         setContent {
             EzampTheme {
@@ -62,5 +81,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        LibraryStore.foreground()
+    }
+
+    override fun onDestroy() {
+        try {
+            connectivity.unregisterNetworkCallback(networkCb)
+        } catch (e: Exception) {
+        }
+        super.onDestroy()
     }
 }

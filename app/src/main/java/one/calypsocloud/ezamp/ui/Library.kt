@@ -183,6 +183,19 @@ private fun HomeScreen(
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = if (lib.error != null) Ez.Bad else Dim,
                 )
+                val online by one.calypsocloud.ezamp.data.LibraryStore.online.collectAsState()
+                if (!online) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (lib.downloadsOnly) "NO CONNECTION — showing what's on this device"
+                        else "NO CONNECTION — tap to browse downloads",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = Ez.Warn,
+                        modifier = Modifier.clickable(enabled = !lib.downloadsOnly) {
+                            one.calypsocloud.ezamp.data.LibraryStore.setDownloadsOnly(true)
+                        }.padding(vertical = 4.dp),
+                    )
+                }
                 Spacer(Modifier.height(if (art) 26.dp else 22.dp))
             }
         }

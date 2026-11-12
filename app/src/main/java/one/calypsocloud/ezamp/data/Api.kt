@@ -112,6 +112,14 @@ object Prefs {
         get() = sp.getString("lastsync", null)
         set(v) = sp.edit().putString("lastsync", v).apply()
 
+    /**
+     * Epoch ms of the last successful sync, beside the display stamp. The throttle reads
+     * this, never a parsed date — clocks and formats stay out of the hot path.
+     */
+    var lastSyncMs: Long
+        get() = sp.getLong("lastsyncms", 0L)
+        set(v) = sp.edit().putLong("lastsyncms", v).apply()
+
     var serverName: String?
         get() = sp.getString("srvname", null)
         set(v) = sp.edit().putString("srvname", v).apply()
