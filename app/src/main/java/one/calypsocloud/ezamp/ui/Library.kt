@@ -389,6 +389,22 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
     var tracks by remember(playlistId) { mutableStateOf<List<Track>>(emptyList()) }
     LaunchedEffect(playlistId) { tracks = LibraryStore.playlistTracks(playlistId) }
 
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val dl by one.calypsocloud.ezamp.data.Downloads.state.collectAsState()
+    val (done, total) = one.calypsocloud.ezamp.data.DownloadPlan.progress(tracks.map { it.id }.distinct(), dl)
+    val busy = one.calypsocloud.ezamp.data.Downloads.playlistBusy(playlistId)
+    val atCap = one.calypsocloud.ezamp.data.Downloads.atCap()
+    val complete = total > 0 && done >= total
+    // No delete here: playlist tracks live under their albums, so removal stays per album in STORAGE.
+    val dlLabel = when {
+        busy -> "DOWNLOADING $done/$total"
+        complete -> "DOWNLOADED $done/$total"
+        atCap -> "CAP REACHED"
+        done > 0 -> "DOWNLOAD REST $done/$total"
+        else -> "DOWNLOAD"
+    }
+    val dlEnabled = tracks.isNotEmpty() && !complete && (busy || !atCap)
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Column(Modifier.padding(horizontal = 22.dp)) {
@@ -410,14 +426,33 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
                     color = Dim,
                 )
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    "PLAY ALL",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                    color = if (tracks.isEmpty()) Mute else Accent,
-                    modifier = Modifier
-                        .clickable(enabled = tracks.isNotEmpty()) { PlayerHolder.play(tracks, 0) }
-                        .padding(vertical = 10.dp),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "PLAY ALL",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                        color = if (tracks.isEmpty()) Mute else Accent,
+                        modifier = Modifier
+                            .clickable(enabled = tracks.isNotEmpty()) { PlayerHolder.play(tracks, 0) }
+                            .padding(vertical = 10.dp),
+                    )
+                    Spacer(Modifier.width(26.dp))
+                    Text(
+                        dlLabel,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                            .copy(fontFeatureSettings = "tnum"),
+                        color = when {
+                            complete -> Dim
+                            dlEnabled -> Accent
+                            else -> Mute
+                        },
+                        modifier = Modifier
+                            .clickable(enabled = dlEnabled) {
+                                if (busy) one.calypsocloud.ezamp.data.Downloads.cancelPlaylist(ctx, playlistId)
+                                else one.calypsocloud.ezamp.data.Downloads.downloadPlaylist(ctx, playlistId, tracks)
+                            }
+                            .padding(vertical = 10.dp),
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
             }
         }

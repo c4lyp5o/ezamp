@@ -39,7 +39,12 @@ object Downloads {
         val path: String?,
         val error: String?,
         val mime: String? = null,
+        /** The request that queued this row (album id or `pl:<id>`); in memory only, see DownloadPlan. */
+        val batch: String? = null,
     ) {
+        /** Cancel and the cap stop key on this; rows restored from disk fall back to their album. */
+        val batchKey: String? get() = batch ?: albumId
+
         val fraction: Float
             get() = when {
                 state == DONE -> 1f
@@ -87,10 +92,15 @@ object Downloads {
                 .associate { it.trackId to it.toRow() }
         }.getOrDefault(emptyMap())
         // A row claiming DONE whose file vanished (cleared data, uninstall leftovers) is not done.
+        // Nothing is in flight in a fresh process, so QUEUED/RUNNING left by a kill are failed with
+        // a reason; otherwise they read as busy forever and RETRY never appears.
         publish(stored.mapValues { (_, r) ->
-            if (r.state == DONE && (r.path == null || !File(r.path).exists())) {
-                r.copy(state = FAILED, error = "file missing")
-            } else r
+            when {
+                r.state == DONE && (r.path == null || !File(r.path).exists()) ->
+                    r.copy(state = FAILED, error = "file missing")
+                r.state == QUEUED || r.state == RUNNING -> r.copy(state = FAILED, error = "interrupted")
+                else -> r
+            }
         })
     }
 
@@ -135,24 +145,33 @@ object Downloads {
         }.getOrDefault(emptyList())
     }
 
-    fun downloadAlbum(ctx: Context, albumId: String, tracks: List<Track>) {
+    fun downloadAlbum(ctx: Context, albumId: String, tracks: List<Track>) =
+        enqueue(ctx, batch = albumId, tracks = tracks, fallbackAlbumId = albumId)
+
+    /** Tracks keep their real album, so every album screen and the storage list see them too. */
+    fun downloadPlaylist(ctx: Context, playlistId: String, tracks: List<Track>) =
+        enqueue(ctx, batch = DownloadPlan.playlistBatch(playlistId), tracks = tracks)
+
+    fun playlistBusy(playlistId: String): Boolean {
+        val b = DownloadPlan.playlistBatch(playlistId)
+        return _state.value.values.any { it.batch == b && (it.state == QUEUED || it.state == RUNNING) }
+    }
+
+    private fun enqueue(ctx: Context, batch: String, tracks: List<Track>, fallbackAlbumId: String? = null) {
         if (tracks.isEmpty()) return
         if (atCap()) {
             // Refuse at the door: the UI shows CAP REACHED, this is the belt to that braces.
-            android.util.Log.w("ezamp-dl", "cap reached (${_used.value} B) — refusing $albumId")
+            android.util.Log.w("ezamp-dl", "cap reached (${_used.value} B) — refusing $batch")
             return
         }
-        cancelled.remove(albumId)
-        capStop.remove(albumId)
-        val pending = tracks.filter { isDownloaded(it.id).not() }
-        if (pending.isEmpty()) return
-        val base = _state.value.toMutableMap()
-        pending.forEach { t ->
-            val m = if (Prefs.playMode == "saver") "audio/mpeg" else t.mime
-            base[t.id] = Row(t.id, albumId, QUEUED, 0, 0, null, null, m)
-        }
-        publish(base)
-        persist(ctx, pending.map { base.getValue(it.id) })
+        cancelled.remove(batch)
+        capStop.remove(batch)
+        val rows = DownloadPlan.queue(tracks, _state.value, batch, Prefs.playMode == "saver", fallbackAlbumId)
+        if (rows.isEmpty()) return
+        val byId = tracks.associateBy { it.id }
+        val pending = rows.mapNotNull { byId[it.trackId] }
+        publish(_state.value + rows.associateBy { it.trackId })
+        persist(ctx, rows)
 
         scope.launch {
             _busy.value = true
@@ -168,9 +187,13 @@ object Downloads {
         }
     }
 
-    fun cancelAlbum(ctx: Context, albumId: String) {
-        cancelled.add(albumId)
-        val rows = _state.value.values.filter { it.albumId == albumId && it.state == QUEUED }
+    fun cancelAlbum(ctx: Context, albumId: String) = cancelBatch(ctx, albumId)
+
+    fun cancelPlaylist(ctx: Context, playlistId: String) = cancelBatch(ctx, DownloadPlan.playlistBatch(playlistId))
+
+    private fun cancelBatch(ctx: Context, batch: String) {
+        cancelled.add(batch)
+        val rows = _state.value.values.filter { it.batchKey == batch && it.state == QUEUED }
         if (rows.isEmpty()) return
         rows.forEach { row -> deleteFilesFor(ctx, row.trackId) }
         val dead = rows.map { it.copy(state = FAILED, error = "cancelled") }
@@ -202,20 +225,21 @@ object Downloads {
      * queued is failed with a reason rather than silently dropping — a stopped queue that says why
      * is the only version he can act on.
      */
-    private fun stopForCap(ctx: Context, albumId: String?) {
-        if (albumId == null || !capStop.add(albumId)) return
-        cancelled.add(albumId)
-        val queued = _state.value.values.filter { it.albumId == albumId && it.state == QUEUED }
+    private fun stopForCap(ctx: Context, batch: String?) {
+        if (batch == null || !capStop.add(batch)) return
+        cancelled.add(batch)
+        val queued = _state.value.values.filter { it.batchKey == batch && it.state == QUEUED }
         if (queued.isEmpty()) return
         val dead = queued.map { it.copy(state = FAILED, error = "storage cap reached") }
         publish(_state.value + dead.associate { it.trackId to it })
         persist(ctx, dead)
-        android.util.Log.w("ezamp-dl", "cap reached at ${_used.value} B — stopped ${dead.size} of $albumId")
+        android.util.Log.w("ezamp-dl", "cap reached at ${_used.value} B — stopped ${dead.size} of $batch")
     }
 
     private suspend fun fetchOne(ctx: Context, track: Track) {
         val albumId = _state.value[track.id]?.albumId
-        if (albumId != null && cancelled.contains(albumId)) return
+        val batch = _state.value[track.id]?.batchKey
+        if (batch != null && cancelled.contains(batch)) return
         val token = Prefs.token ?: return fail(ctx, track, "not signed in")
         val saver = Prefs.playMode == "saver"
         val mime = if (saver) "audio/mpeg" else track.mime
@@ -242,7 +266,7 @@ object Downloads {
                         var written = 0L
                         var lastPublish = 0L
                         while (true) {
-                            if (albumId != null && cancelled.contains(albumId)) {
+                            if (batch != null && cancelled.contains(batch)) {
                                 throw java.io.IOException("cancelled")
                             }
                             val n = input.read(buf)
@@ -285,14 +309,14 @@ object Downloads {
         error: String?,
         mime: String?,
     ) {
-        val albumId = _state.value[track.id]?.albumId
-        val row = Row(track.id, albumId, state, bytes, total, path, error, mime)
+        val prev = _state.value[track.id]
+        val row = Row(track.id, prev?.albumId, state, bytes, total, path, error, mime, prev?.batch)
         publish(_state.value + (track.id to row))
         persist(ctx, listOf(row))
         if (state == FAILED) android.util.Log.w("ezamp-dl", "${track.name} failed: $error")
         if (state == DONE) {
             android.util.Log.i("ezamp-dl", "${track.name} saved ${bytes / 1024}KB $mime")
-            if (StoragePolicy.overCap(_used.value, Prefs.storageCapMb)) stopForCap(ctx, albumId)
+            if (StoragePolicy.overCap(_used.value, Prefs.storageCapMb)) stopForCap(ctx, row.batchKey)
         }
     }
 
