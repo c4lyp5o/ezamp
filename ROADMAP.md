@@ -61,7 +61,8 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
 - ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
 - ✅ Sleep timer: 15–60 min with a 10 s fade, or end of track; runs with the service's player.
-- ⬜ Crossfade, equalizer — only if they can be done without touching the UI thread.
+- ✅ Equalizer: system `Equalizer` effect on the player's session (off, phone presets, custom bands); DSP runs in the audio server.
+- ⬜ Crossfade — only if it can be done without touching the UI thread.
 - ✅ Queue persistence off the main thread; 48 dp transport touch targets; adaptive grid columns, phones portrait / tablets rotate; haptics on transport controls.
 - ✅ Accessibility pass: every drawn or glyph control (play/pause, skip, close, hearts, clear search) has a spoken label and button role; screens checked at 130% system text.
 - ✅ ID3 numeric genres ("13", "(13)", "(13)Pop", "(RX)") map to names (ID3v1 + Winamp table, 0–191) at sync.

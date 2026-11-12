@@ -39,6 +39,7 @@ Battery/CPU while playing is decode and audio routing, not UI: the main thread i
 - **Playlists:** a permanent Favourites playlist first, then the server's playlists that actually contain music; a Jellyfin playlist that is all video is not a music playlist.
 - **Playback:** plays from the `MediaSessionService`, survives leaving the app, position ticker only runs while a screen shows progress.
 - **Resume:** the queue and playhead survive the process being killed. Reopen and it is where you left it.
+- **Equalizer:** SOUND in settings picks the phone's presets or a custom curve per band; the phone does the filtering, so it costs the app nothing while playing.
 - **Sleep timer:** SLEEP in Now Playing stops after 15–60 minutes (fading out over the last ten seconds) or at the end of the current track; it keeps counting with the screen off.
 - **Scrobbling:** start, progress (every 10 s) and stop are reported to Jellyfin, so play counts and "continue listening" stay truthful.
 - **Play mode:** Direct (server's own file) or Saver (mp3 192k transcode). Measured on this library: an album is 205 MB direct and 79 MB in saver — 61 % smaller — for roughly 300 ms extra to first audio.
