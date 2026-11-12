@@ -73,6 +73,8 @@ data class Playlist(
     val trackCount: Int,
     val imageTag: String?,
     val artUri: String,
+    /** Made on this phone (see [LibraryStore.createLocal]); never sent to Jellyfin. */
+    val local: Boolean = false,
 )
 
 // ---------------------------------------------------------------- state
@@ -88,6 +90,10 @@ data class LibState(
     val trackCount: Int = 0,
     val favourites: List<Track> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
+    /** Local playlists, most recently changed first. */
+    val localPlaylists: List<Playlist> = emptyList(),
+    /** Bumped on every local playlist edit, so an open playlist screen reloads its tracks. */
+    val localVersion: Int = 0,
     val recent: List<Album> = emptyList(),
     val syncMs: Long = 0,
     val lastSync: String? = null,
@@ -454,6 +460,7 @@ object LibraryStore {
             recent = recent,
             favourites = favs,
             playlists = scopedLists,
+            localPlaylists = localLists(a),
             trackCount = count,
             syncMs = syncMs,
             lastSync = stamp ?: _state.value.lastSync,
@@ -506,8 +513,92 @@ object LibraryStore {
 
     suspend fun playlistTracks(playlistId: String): List<Track> = withContext(Dispatchers.IO) {
         val a = api()
-        val rows = if (Prefs.downloadsOnly) q().scopedPlaylistTracks(playlistId) else q().playlistTracks(playlistId)
+        val rows = when {
+            isLocal(playlistId) && Prefs.downloadsOnly -> q().scopedLocalPlaylistTracks(playlistId)
+            isLocal(playlistId) -> q().localPlaylistTracks(playlistId)
+            Prefs.downloadsOnly -> q().scopedPlaylistTracks(playlistId)
+            else -> q().playlistTracks(playlistId)
+        }
         rows.executeAsList().map { it.toDomain(a) }
+    }
+
+    // ------------------------------------------------------------ local playlists
+
+    private const val LOCAL_PREFIX = "local-"
+
+    fun isLocal(playlistId: String): Boolean = playlistId.startsWith(LOCAL_PREFIX)
+
+    /** Server + user: local playlists belong to the library whose track ids they hold. */
+    private fun owner(): String = "${Prefs.baseUrl.orEmpty().trimEnd('/')}|${Prefs.userId.orEmpty()}"
+
+    private fun localLists(a: JellyfinApi?): List<Playlist> =
+        try {
+            q().localPlaylists(owner()).executeAsList().map { r ->
+                Playlist(
+                    id = r.id,
+                    name = r.name,
+                    trackCount = r.trackCount.toInt(),
+                    imageTag = r.coverTag,
+                    artUri = r.coverId?.let { a?.imageUrl(it, r.coverTag) } ?: "",
+                    local = true,
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ezamp-lists", "local playlists not read: ${e.message}")
+            _state.value.localPlaylists
+        }
+
+    private fun publishLocal() {
+        _state.value = _state.value.copy(
+            localPlaylists = localLists(api()),
+            localVersion = _state.value.localVersion + 1,
+        )
+    }
+
+    /** Ids of the local playlists that already hold [trackId]. */
+    suspend fun localPlaylistsWith(trackId: String): Set<String> = withContext(Dispatchers.IO) {
+        try {
+            q().localPlaylistsWithTrack(trackId, owner()).executeAsList().toSet()
+        } catch (e: Exception) {
+            android.util.Log.w("ezamp-lists", "membership not read: ${e.message}")
+            emptySet()
+        }
+    }
+
+    /** New local playlist, optionally starting with [firstTrackId]. Returns its id. */
+    suspend fun createLocal(name: String, firstTrackId: String? = null): String = withContext(Dispatchers.IO) {
+        val id = LOCAL_PREFIX + java.util.UUID.randomUUID().toString()
+        val queries = q()
+        queries.transaction {
+            queries.createLocalPlaylist(id, owner(), name.trim(), System.currentTimeMillis())
+            if (firstTrackId != null) queries.addLocalPlaylistTrack(id, firstTrackId)
+        }
+        publishLocal()
+        id
+    }
+
+    suspend fun setInLocal(playlistId: String, trackId: String, member: Boolean): Unit = withContext(Dispatchers.IO) {
+        val queries = q()
+        queries.transaction {
+            if (member) queries.addLocalPlaylistTrack(playlistId, trackId)
+            else queries.removeLocalPlaylistTrack(playlistId, trackId)
+            queries.touchLocalPlaylist(System.currentTimeMillis(), playlistId)
+        }
+        publishLocal()
+    }
+
+    suspend fun renameLocal(playlistId: String, name: String): Unit = withContext(Dispatchers.IO) {
+        q().renameLocalPlaylist(name.trim(), System.currentTimeMillis(), playlistId)
+        publishLocal()
+    }
+
+    suspend fun removeLocal(playlistId: String): Unit = withContext(Dispatchers.IO) {
+        val queries = q()
+        queries.transaction {
+            queries.deleteLocalPlaylistTracks(playlistId)
+            queries.deleteLocalPlaylist(playlistId)
+        }
+        publishLocal()
     }
 
     suspend fun artists(): List<Artist> = withContext(Dispatchers.IO) {

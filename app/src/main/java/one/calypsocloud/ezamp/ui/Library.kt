@@ -60,6 +60,7 @@ fun Root(onSignOut: () -> Unit) {
     var variant by remember { mutableStateOf(Prefs.variant) }
     var playMode by remember { mutableStateOf(Prefs.playMode) }
     var showSettings by remember { mutableStateOf(false) }
+    var newPlaylist by remember { mutableStateOf(false) }
 
     // Library carousel, search and scroll positions live here so an album round trip keeps them.
     val pager = androidx.compose.foundation.pager.rememberPagerState(
@@ -217,11 +218,19 @@ fun Root(onSignOut: () -> Unit) {
                     state = playlistsList,
                     onOpenFavourites = { favouritesOpen = true },
                     onOpen = { playlistId = it },
+                    onNew = { newPlaylist = true },
                 )
             }
         }
     }
 
+    heldTrack.value?.let { held -> TrackSheet(held) { heldTrack.value = null } }
+    if (newPlaylist) {
+        NewPlaylistSheet(
+            onCreated = { id -> newPlaylist = false; playlistId = id },
+            onClose = { newPlaylist = false },
+        )
+    }
     if (showSettings) {
         SettingsSheet(
             variant = variant,
@@ -326,9 +335,19 @@ internal fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> 
 @Composable
 private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Unit) {
     val lib by LibraryStore.state.collectAsState()
-    val pl = lib.playlists.firstOrNull { it.id == playlistId }
+    val pl = (lib.localPlaylists + lib.playlists).firstOrNull { it.id == playlistId }
+    val local = LibraryStore.isLocal(playlistId)
     var tracks by remember(playlistId) { mutableStateOf<List<Track>>(emptyList()) }
-    LaunchedEffect(playlistId) { tracks = LibraryStore.playlistTracks(playlistId) }
+    LaunchedEffect(playlistId, lib.localVersion) { tracks = LibraryStore.playlistTracks(playlistId) }
+    val scope = rememberCoroutineScope()
+    var renaming by remember(playlistId) { mutableStateOf(false) }
+    var confirmDelete by remember(playlistId) { mutableStateOf(false) }
+    LaunchedEffect(confirmDelete) {
+        if (confirmDelete) {
+            kotlinx.coroutines.delay(3_000)
+            confirmDelete = false
+        }
+    }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val dl by one.calypsocloud.ezamp.data.Downloads.state.collectAsState()
@@ -357,15 +376,59 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
                     modifier = Modifier.clickable { onBack() }.padding(vertical = 12.dp),
                 )
                 Spacer(Modifier.height(2.dp))
-                Art(pl?.artUri, size = 200.dp, corner = 10.dp, label = pl?.name)
+                Art(pl?.artUri?.ifEmpty { null }, size = 200.dp, corner = 10.dp, label = pl?.name)
                 Spacer(Modifier.height(16.dp))
-                Text(pl?.name ?: "", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
+                if (renaming) {
+                    NameField(initial = pl?.name.orEmpty(), action = "SAVE") { name ->
+                        renaming = false
+                        scope.launch {
+                            try {
+                                LibraryStore.renameLocal(playlistId, name)
+                            } catch (e: Exception) {
+                                android.util.Log.w("ezamp-lists", "rename failed: ${e.message}")
+                            }
+                        }
+                    }
+                } else {
+                    Text(pl?.name ?: "", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    plural("track", tracks.size),
+                    if (local && tracks.isEmpty()) "nothing yet — hold any track to add it" else plural("track", tracks.size),
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
+                if (local && !renaming) {
+                    Row {
+                        Text(
+                            "RENAME",
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = Dim,
+                            modifier = Modifier.clickable { renaming = true }.padding(top = 10.dp, bottom = 6.dp, end = 22.dp),
+                        )
+                        Text(
+                            if (confirmDelete) "TAP AGAIN TO DELETE" else "DELETE",
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = if (confirmDelete) Ez.Bad else Dim,
+                            modifier = Modifier
+                                .clickable {
+                                    if (!confirmDelete) {
+                                        confirmDelete = true
+                                    } else {
+                                        scope.launch {
+                                            try {
+                                                LibraryStore.removeLocal(playlistId)
+                                                onBack()
+                                            } catch (e: Exception) {
+                                                android.util.Log.w("ezamp-lists", "delete failed: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(top = 10.dp, bottom = 6.dp),
+                        )
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -407,7 +470,7 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
             }
         }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
-            TrackRow(t, playing = play.itemId == t.id) { PlayerHolder.play(tracks, i) }
+            TrackRow(t, playing = play.itemId == t.id, playlistId = playlistId.takeIf { local }) { PlayerHolder.play(tracks, i) }
         }
     }
 }
@@ -631,7 +694,7 @@ private fun SettingsSheet(
 }
 
 @Composable
-private fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -834,7 +897,7 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable { PlayerHolder.play(tracks, i) }
+                    .trackPress(t, null) { PlayerHolder.play(tracks, i) }
                     .padding(horizontal = 22.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -886,11 +949,11 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
 // ------------------------------------------------------------------ shared bits
 
 @Composable
-fun TrackRow(t: Track, playing: Boolean, onClick: () -> Unit) {
+fun TrackRow(t: Track, playing: Boolean, playlistId: String? = null, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .trackPress(t, playlistId, onClick)
             .padding(horizontal = 22.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

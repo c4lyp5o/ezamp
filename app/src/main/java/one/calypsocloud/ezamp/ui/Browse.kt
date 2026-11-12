@@ -625,8 +625,10 @@ internal fun PlaylistsScreen(
     state: LazyListState,
     onOpenFavourites: () -> Unit,
     onOpen: (String) -> Unit,
+    onNew: () -> Unit,
 ) {
-    val entries: List<Playlist?> = listOf(null) + lib.playlists
+    // Favourites, then this phone's playlists (newest edit first), then the server's.
+    val entries: List<Playlist?> = listOf(null) + lib.localPlaylists + lib.playlists
     val cols = gridColumns()
     val favCount = plural("track", lib.favourites.size)
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -634,11 +636,23 @@ internal fun PlaylistsScreen(
             Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
                 Text("Playlists", style = MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    plural("playlist", entries.size),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                    color = Dim,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        plural("playlist", entries.size),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                        color = Dim,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "NEW",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Accent,
+                        modifier = Modifier
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onNew() }
+                            .semantics { contentDescription = "New playlist" }
+                            .padding(vertical = 8.dp, horizontal = 2.dp),
+                    )
+                }
                 Spacer(Modifier.height(if (art) 18.dp else 12.dp))
             }
         }
@@ -655,7 +669,7 @@ internal fun PlaylistsScreen(
                             PlaylistTile("Favourites", favCount, Modifier.weight(1f), cover = { FavouritesArt(it) }, onClick = onOpenFavourites)
                         } else {
                             PlaylistTile(pl.name, plural("track", pl.trackCount), Modifier.weight(1f), cover = {
-                                ArtBox(url = pl.artUri, label = pl.name, corner = 6.dp, modifier = it)
+                                ArtBox(url = pl.artUri.ifEmpty { null }, label = pl.name, corner = 6.dp, modifier = it)
                             }) { onOpen(pl.id) }
                         }
                     }
@@ -668,7 +682,7 @@ internal fun PlaylistsScreen(
                     PlaylistRow("Favourites", favCount, cover = { FavouritesArt(it, corner = 4.dp) }, onClick = onOpenFavourites)
                 } else {
                     PlaylistRow(pl.name, plural("track", pl.trackCount), cover = {
-                        ArtBox(url = pl.artUri, label = pl.name, corner = 4.dp, modifier = it)
+                        ArtBox(url = pl.artUri.ifEmpty { null }, label = pl.name, corner = 4.dp, modifier = it)
                     }) { onOpen(pl.id) }
                 }
             }

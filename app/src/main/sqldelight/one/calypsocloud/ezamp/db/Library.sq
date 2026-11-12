@@ -345,3 +345,75 @@ DELETE FROM libraryDownload WHERE albumId = ?;
 
 deleteAllDownloads:
 DELETE FROM libraryDownload;
+
+-- Local playlists (migration 8): made on this phone, never sent to Jellyfin. A sync never touches
+-- these tables. owner = "<server>|<user>"; most recently changed first, so the list you just used
+-- leads the add-to-playlist sheet.
+CREATE TABLE localPlaylist (
+    id TEXT NOT NULL PRIMARY KEY,
+    owner TEXT NOT NULL,
+    name TEXT NOT NULL,
+    updated INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE localPlaylistTrack (
+    playlistId TEXT NOT NULL,
+    trackId TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (playlistId, trackId)
+);
+
+CREATE INDEX localPlaylistTrack_playlist ON localPlaylistTrack(playlistId, position);
+
+localPlaylists:
+SELECT p.id, p.name,
+    (SELECT COUNT(*) FROM localPlaylistTrack lt JOIN libraryTrack t ON t.id = lt.trackId
+        WHERE lt.playlistId = p.id) AS trackCount,
+    (SELECT t.albumId FROM localPlaylistTrack lt JOIN libraryTrack t ON t.id = lt.trackId
+        WHERE lt.playlistId = p.id ORDER BY lt.position LIMIT 1) AS coverId,
+    (SELECT t.imageTag FROM localPlaylistTrack lt JOIN libraryTrack t ON t.id = lt.trackId
+        WHERE lt.playlistId = p.id ORDER BY lt.position LIMIT 1) AS coverTag
+FROM localPlaylist p
+WHERE p.owner = ?
+ORDER BY p.updated DESC;
+
+createLocalPlaylist:
+INSERT INTO localPlaylist(id, owner, name, updated) VALUES (?, ?, ?, ?);
+
+renameLocalPlaylist:
+UPDATE localPlaylist SET name = ?, updated = ? WHERE id = ?;
+
+touchLocalPlaylist:
+UPDATE localPlaylist SET updated = ? WHERE id = ?;
+
+deleteLocalPlaylist:
+DELETE FROM localPlaylist WHERE id = ?;
+
+deleteLocalPlaylistTracks:
+DELETE FROM localPlaylistTrack WHERE playlistId = ?;
+
+addLocalPlaylistTrack:
+INSERT OR IGNORE INTO localPlaylistTrack(playlistId, trackId, position)
+VALUES (:playlistId, :trackId,
+    (SELECT COALESCE(MAX(position), -1) + 1 FROM localPlaylistTrack WHERE playlistId = :playlistId));
+
+removeLocalPlaylistTrack:
+DELETE FROM localPlaylistTrack WHERE playlistId = ? AND trackId = ?;
+
+localPlaylistsWithTrack:
+SELECT lt.playlistId FROM localPlaylistTrack lt
+JOIN localPlaylist p ON p.id = lt.playlistId
+WHERE lt.trackId = ? AND p.owner = ?;
+
+localPlaylistTracks:
+SELECT t.* FROM libraryTrack t
+JOIN localPlaylistTrack p ON p.trackId = t.id
+WHERE p.playlistId = ?
+ORDER BY p.position;
+
+scopedLocalPlaylistTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+JOIN localPlaylistTrack p ON p.trackId = t.id
+WHERE p.playlistId = ?
+ORDER BY p.position;

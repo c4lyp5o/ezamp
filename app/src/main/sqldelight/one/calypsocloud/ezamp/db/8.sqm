@@ -1,0 +1,17 @@
+-- Local playlists: made on this phone, never sent to Jellyfin. Keyed by owner (server + user) so
+-- signing in elsewhere does not show them against a library whose track ids differ.
+CREATE TABLE localPlaylist (
+    id TEXT NOT NULL PRIMARY KEY,
+    owner TEXT NOT NULL,
+    name TEXT NOT NULL,
+    updated INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE localPlaylistTrack (
+    playlistId TEXT NOT NULL,
+    trackId TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (playlistId, trackId)
+);
+
+CREATE INDEX localPlaylistTrack_playlist ON localPlaylistTrack(playlistId, position);
