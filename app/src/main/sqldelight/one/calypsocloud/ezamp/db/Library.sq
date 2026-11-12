@@ -181,6 +181,79 @@ GROUP BY d.albumId
 HAVING SUM(CASE WHEN d.state = 2 THEN 1 ELSE 0 END) > 0
 ORDER BY bytes DESC;
 
+-- Downloaded-only scope lives here, not in Kotlin: one flag flips every screen at once, and the
+-- index never leaves SQLite. Albums with nothing finished are invisible; no screen can name a
+-- track that cannot play. Query only: no schema change, no migration.
+scopedAlbums:
+SELECT a.* FROM libraryAlbum a
+WHERE EXISTS (
+    SELECT 1 FROM libraryDownload d
+    WHERE d.albumId = a.id AND d.state = 2
+)
+ORDER BY a.sortName;
+
+scopedRecent:
+SELECT a.* FROM libraryAlbum a
+WHERE EXISTS (
+    SELECT 1 FROM libraryDownload d
+    WHERE d.albumId = a.id AND d.state = 2
+)
+ORDER BY a.created DESC LIMIT 12;
+
+scopedTracksForAlbum:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+WHERE t.albumId = ?
+ORDER BY t.discNo, t.trackNo;
+
+scopedFavouriteTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+WHERE t.favourite = 1
+ORDER BY t.title LIMIT 500;
+
+scopedSearchTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+WHERE t.haystack LIKE :needle LIMIT 300;
+
+scopedTrackCount:
+SELECT COUNT(*) FROM libraryDownload WHERE state = 2;
+
+scopedPlaylists:
+SELECT * FROM libraryPlaylist WHERE trackCount > 0 ORDER BY sortName;
+
+scopedPlaylistTracks:
+SELECT t.* FROM libraryTrack t
+JOIN libraryDownload d ON d.trackId = t.id AND d.state = 2
+JOIN libraryPlaylistTrack p ON p.trackId = t.id
+WHERE p.playlistId = ?
+ORDER BY p.position;
+
+scopedArtists:
+SELECT a.artist AS artist, COUNT(*) AS albumCount
+FROM libraryAlbum a
+WHERE a.artist != ''
+AND EXISTS (
+    SELECT 1 FROM libraryDownload d
+    WHERE d.albumId = a.id AND d.state = 2
+)
+GROUP BY a.artist ORDER BY a.artist;
+
+scopedAlbumsByArtist:
+SELECT a.* FROM libraryAlbum a
+WHERE a.artist = ?
+AND EXISTS (
+    SELECT 1 FROM libraryDownload d
+    WHERE d.albumId = a.id AND d.state = 2
+)
+ORDER BY a.sortName;
+
+-- done/total per album for the partial badge: (finished, indexed).
+-- CAST keeps the column a plain INTEGER so the generated getter is Long, not Number.
+doneCountForAlbum:
+SELECT CAST(SUM(CASE WHEN d.state = 2 THEN 1 ELSE 0 END) AS INTEGER) FROM libraryDownload d WHERE d.albumId = ?;
+
 allDownloadedIds:
 SELECT trackId FROM libraryDownload WHERE state = 2;
 

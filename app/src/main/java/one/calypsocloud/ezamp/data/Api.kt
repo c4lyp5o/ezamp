@@ -145,6 +145,15 @@ object Prefs {
         get() = sp.getInt("storagemb", 4096)
         set(v) = sp.edit().putInt("storagemb", v).apply()
 
+    /**
+     * Offline-only scope: every screen reads downloaded tracks only. Applied in SQL, not in RAM —
+     * a filter in the UI would still load the full index to throw most of it away. One flag, one
+     * set of queries, everything else just reads.
+     */
+    var downloadsOnly: Boolean
+        get() = sp.getBoolean("dlonly", false)
+        set(v) = sp.edit().putBoolean("dlonly", v).apply()
+
     /** Stable per-install id; Jellyfin ties sessions and playback reports to it. */
     val deviceId: String
         get() = sp.getString("deviceid", null) ?: java.util.UUID.randomUUID().toString().also {

@@ -80,6 +80,9 @@ data class LibState(
     val syncing: Boolean = false,
     val error: String? = null,
     val albums: List<Album> = emptyList(),
+    /** finished/total per album id. The card badge reads this, never a second query. */
+    val doneCounts: Map<String, Int> = emptyMap(),
+    val downloadsOnly: Boolean = false,
     val trackCount: Int = 0,
     val favourites: List<Track> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
@@ -362,24 +365,68 @@ object LibraryStore {
     private suspend fun refresh(stamp: String?, syncMs: Long) = withContext(Dispatchers.Default) {
         val a = api()
         val queries = q()
-        val albums = queries.allAlbums().executeAsList().map { it.toDomain(a) }
-        if (albums.isEmpty()) return@withContext
-        val recent = queries.recentAlbums().executeAsList().map { it.toDomain(a) }
-        val favs = queries.favouriteTracks().executeAsList().map { it.toDomain(a) }
+        val scoped = Prefs.downloadsOnly
+        val albums = (if (scoped) queries.scopedAlbums() else queries.allAlbums())
+            .executeAsList().map { it.toDomain(a) }
+        val scopedIds = if (scoped) albums.map { it.id }.toSet() else null
+        val recent = (if (scoped) queries.scopedRecent() else queries.recentAlbums())
+            .executeAsList().map { it.toDomain(a) }
+        val favs = (if (scoped) queries.scopedFavouriteTracks() else queries.favouriteTracks())
+            .executeAsList().map { it.toDomain(a) }
         val lists = queries.allPlaylists().executeAsList().map { it.toDomain(a) }
-        val count = queries.trackCount().executeAsOne().toInt()
+        val scopedLists = if (scoped) {
+            // Playlists are few (dozens); one scoped count each keeps the code reading the same
+            // queries as the screens do, instead of inventing a parallel path.
+            lists.mapNotNull { pl ->
+                // A failing count hides the playlist: same rule as every other scoped query.
+                val kept: Int = try {
+                    queries.scopedPlaylistTracks(pl.id).executeAsList().size
+                } catch (e: Exception) {
+                    0
+                }
+                if (kept == 0) null else pl.copy(trackCount = kept)
+            }
+        } else lists
+        val count = (if (scoped) queries.scopedTrackCount() else queries.trackCount())
+            .executeAsOne().toInt()
+        val done: Map<String, Int> = if (scoped) {
+            // In the scoped world the card badge is done/indexed: finished rows over the rows
+            // the sync saw. One cheap count per album, not a second full pass. The explicit
+            // type keeps inference out of the runCatching lambda (kotlinc cannot see through it).
+            val counts = HashMap<String, Int>(albums.size)
+            for (al in albums) {
+                // doneCountForAlbum returns a row (nullable SUM), not a scalar: a failing
+                // count is zero, and NULL means no download rows for the album at all.
+                val n: Int = try {
+                    (queries.doneCountForAlbum(al.id).executeAsOne().SUM ?: 0L).toInt()
+                } catch (e: Exception) {
+                    0
+                }
+                counts[al.id] = n
+            }
+            counts
+        } else emptyMap()
         _state.value = _state.value.copy(
-            ready = true,
+            ready = albums.isNotEmpty() || scoped,
             syncing = false,
             albums = albums,
+            doneCounts = done,
+            downloadsOnly = scoped,
             recent = recent,
             favourites = favs,
-            playlists = lists,
+            playlists = scopedLists,
             trackCount = count,
             syncMs = syncMs,
             lastSync = stamp ?: _state.value.lastSync,
             error = null,
         )
+    }
+
+    /** Flip the offline scope and repaint from the DB. The index is untouched — only the lens. */
+    fun setDownloadsOnly(on: Boolean) {
+        if (Prefs.downloadsOnly == on) return
+        Prefs.downloadsOnly = on
+        scope.launch { refresh(Prefs.lastSync, 0) }
     }
 
     // ------------------------------------------------------------ queries
@@ -403,7 +450,10 @@ object LibraryStore {
                 val code = runCatching { a.setFavorite(uid, trackId, favourite) }.getOrDefault(-1)
                 android.util.Log.i("ezamp-fav", "$trackId favourite=$favourite http=$code")
             }
-            val favs = runCatching { q().favouriteTracks().executeAsList().map { it.toDomain(a) } }
+            val favs = runCatching {
+                (if (Prefs.downloadsOnly) q().scopedFavouriteTracks() else q().favouriteTracks())
+                    .executeAsList().map { it.toDomain(a) }
+            }
                 .getOrDefault(_state.value.favourites)
             _state.value = _state.value.copy(favourites = favs)
         }
@@ -411,21 +461,29 @@ object LibraryStore {
 
     suspend fun albumTracks(albumId: String): List<Track> = withContext(Dispatchers.IO) {
         val a = api()
-        q().tracksForAlbum(albumId).executeAsList().map { it.toDomain(a) }
+        val rows = if (Prefs.downloadsOnly) q().scopedTracksForAlbum(albumId) else q().tracksForAlbum(albumId)
+        rows.executeAsList().map { it.toDomain(a) }
     }
 
     suspend fun playlistTracks(playlistId: String): List<Track> = withContext(Dispatchers.IO) {
         val a = api()
-        q().playlistTracks(playlistId).executeAsList().map { it.toDomain(a) }
+        val rows = if (Prefs.downloadsOnly) q().scopedPlaylistTracks(playlistId) else q().playlistTracks(playlistId)
+        rows.executeAsList().map { it.toDomain(a) }
     }
 
     suspend fun artists(): List<Artist> = withContext(Dispatchers.IO) {
-        q().artists().executeAsList().map { Artist(it.artist, it.albumCount.toInt()) }
+        val rows = if (Prefs.downloadsOnly) {
+            q().scopedArtists().executeAsList().map { Artist(it.artist, it.albumCount.toInt()) }
+        } else {
+            q().artists().executeAsList().map { Artist(it.artist, it.albumCount.toInt()) }
+        }
+        rows
     }
 
     suspend fun albumsByArtist(name: String): List<Album> = withContext(Dispatchers.IO) {
         val a = api()
-        q().albumsByArtist(name).executeAsList().map { it.toDomain(a) }
+        val rows = if (Prefs.downloadsOnly) q().scopedAlbumsByArtist(name) else q().albumsByArtist(name)
+        rows.executeAsList().map { it.toDomain(a) }
     }
 
     /** Indexed search. 5.5k rows -> single-digit milliseconds on device, no network. */
@@ -440,7 +498,7 @@ object LibraryStore {
         scope.launch {
             val t0 = System.nanoTime()
             val a = api()
-            val rows = q().searchTracks("%$needle%").executeAsList()
+            val rows = (if (Prefs.downloadsOnly) q().scopedSearchTracks("%$needle%") else q().searchTracks("%$needle%")).executeAsList()
             val ms = ((System.nanoTime() - t0) / 1_000_000.0).roundToLong()
             android.util.Log.i("ezamp-perf", "search=${ms}ms hits=${rows.size} for \"$needle\"")
             if (seq != searchSeq) return@launch // a newer keystroke already won
