@@ -137,6 +137,14 @@ object Prefs {
         get() = sp.getInt("saverkbps", 192)
         set(v) = sp.edit().putInt("saverkbps", v).apply()
 
+    /**
+     * Cap for offline copies, in MB. 0 disables it. The cap refuses new downloads rather than
+     * evicting old ones — see [StoragePolicy].
+     */
+    var storageCapMb: Int
+        get() = sp.getInt("storagemb", 4096)
+        set(v) = sp.edit().putInt("storagemb", v).apply()
+
     /** Stable per-install id; Jellyfin ties sessions and playback reports to it. */
     val deviceId: String
         get() = sp.getString("deviceid", null) ?: java.util.UUID.randomUUID().toString().also {

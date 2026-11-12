@@ -168,6 +168,19 @@ SELECT state, COUNT(*) AS n FROM libraryDownload GROUP BY state;
 downloadBytesTotal:
 SELECT COALESCE(SUM(bytes), 0) FROM libraryDownload WHERE state = 2;
 
+-- One row per album that has at least one finished track, biggest first. Powers the storage list,
+-- and the cap's "what is actually on disk" answer. Query only: no schema change, no migration.
+downloadsByAlbum:
+SELECT d.albumId AS albumId,
+       COALESCE(a.name, d.albumId) AS name,
+       COALESCE(SUM(CASE WHEN d.state = 2 THEN d.bytes ELSE 0 END), 0) AS bytes,
+       SUM(CASE WHEN d.state = 2 THEN 1 ELSE 0 END) AS tracks
+FROM libraryDownload d
+LEFT JOIN libraryAlbum a ON a.id = d.albumId
+GROUP BY d.albumId
+HAVING SUM(CASE WHEN d.state = 2 THEN 1 ELSE 0 END) > 0
+ORDER BY bytes DESC;
+
 allDownloadedIds:
 SELECT trackId FROM libraryDownload WHERE state = 2;
 

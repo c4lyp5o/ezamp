@@ -126,3 +126,11 @@ fun fmt(ms: Long): String {
     val s = total % 60
     return "%d:%02d".format(m, s)
 }
+
+/** Storage sizes: one decimal from 100 MB up, whole MB below, GB beyond 1024 MB. */
+fun sizeOf(bytes: Long): String = when {
+    bytes >= 1024L * 1024L * 1024L -> "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+    bytes >= 100L * 1024L * 1024L -> "%.0f MB".format(bytes / (1024.0 * 1024.0))
+    bytes > 0 -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+    else -> "0 MB"
+}
