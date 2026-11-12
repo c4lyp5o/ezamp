@@ -254,9 +254,12 @@ object PlayerHolder {
             buffering = p.playbackState == Player.STATE_BUFFERING,
             positionMs = (offset + p.currentPosition).coerceAtLeast(0),
             // A live transcode reports no duration, so the queue's own metadata is the truth there.
-            durationMs = if (track != null && isSaver(track.id) && track.durationMs > 0) {
-                track.durationMs
-            } else p.duration.coerceAtLeast(0),
+            // A restored queue is not prepared until play, so the player knows no duration yet either.
+            durationMs = when {
+                track != null && isSaver(track.id) && track.durationMs > 0 -> track.durationMs
+                p.duration > 0 -> p.duration
+                else -> track?.durationMs?.coerceAtLeast(0) ?: 0L
+            },
             hasNext = p.hasNextMediaItem(),
             hasPrev = p.hasPreviousMediaItem(),
             count = p.mediaItemCount,
