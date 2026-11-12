@@ -857,7 +857,7 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                 }
                 var fav by remember(t.id, t.favourite) { mutableStateOf(t.favourite) }
                 Text(
-                    if (fav) "♥" else "♡",
+                    if (fav) "\u2665\uFE0E" else "\u2661\uFE0E",
                     style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                     color = if (fav) Accent else Ez.LineStrong,
                     modifier = Modifier
@@ -907,7 +907,7 @@ fun TrackRow(t: Track, playing: Boolean, onClick: () -> Unit) {
         }
         var fav by remember(t.id, t.favourite) { mutableStateOf(t.favourite) }
         Text(
-            if (fav) "♥" else "♡",
+            if (fav) "\u2665\uFE0E" else "\u2661\uFE0E",
             style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
             color = if (fav) Accent else Ez.LineStrong,
             modifier = Modifier
