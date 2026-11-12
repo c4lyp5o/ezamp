@@ -130,13 +130,10 @@ object LibraryStore {
         if (!_online.value) return
         if (_state.value.syncing) return
         val elapsed = System.currentTimeMillis() - Prefs.lastSyncMs
-        if (Prefs.lastSyncMs > 0 && elapsed < SYNC_THROTTLE_MS) return
+        if (!SyncPolicy.due(Prefs.lastSyncMs, System.currentTimeMillis())) return
         android.util.Log.i("ezamp-sync", "foreground sync (elapsed=${elapsed / 1000}s)")
         scope.launch { sync(uid) }
     }
-
-    /** Minimum gap between automatic syncs. Manual SYNC ignores this. */
-    private const val SYNC_THROTTLE_MS = 15 * 60 * 1000L
 
     private var api: JellyfinApi? = null
     private var db: EzampDb? = null

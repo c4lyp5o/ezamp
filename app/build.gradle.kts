@@ -48,6 +48,12 @@ android {
         compose = true
     }
 
+    testOptions {
+        // Android stubs return defaults instead of throwing, so JVM tests can touch classes that
+        // merely reference android.* (Log, Context) without an emulator.
+        unitTests.isReturnDefaultValues = true
+    }
+
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/INDEX.LIST", "/META-INF/DEPENDENCIES")
     }
@@ -103,4 +109,8 @@ sqldelight {
 dependencies {
     implementation("app.cash.sqldelight:android-driver:2.4.1")
     implementation("app.cash.sqldelight:coroutines-extensions:2.4.1")
+
+    // Test-only: never packaged. The JDBC driver runs the real generated queries on in-memory SQLite.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("app.cash.sqldelight:sqlite-driver:2.4.1")
 }

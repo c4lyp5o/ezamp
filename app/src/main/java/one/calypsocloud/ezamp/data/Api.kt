@@ -369,6 +369,14 @@ class JellyfinApi(val baseUrl: String, val token: String) {
             "&audioBitRate=${kbps * 1000}&maxAudioChannels=2$seek"
     }
 
+    companion object {
+        private val START_TICKS = Regex("startTimeTicks=(\\d+)")
+
+        /** The offset a [saverUrl] transcode starts at, in ms; 0 for any URL without one. */
+        fun transcodeOffsetMs(uri: String): Long =
+            (START_TICKS.find(uri)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L) / 10_000
+    }
+
     fun transcodeUrl(id: String, bitrate: Int = 256_000): String =
         "$baseUrl/Audio/$id/universal?audioCodec=aac&maxStreamingBitrate=$bitrate&transcodingContainer=ts&transcodingProtocol=hls"
 

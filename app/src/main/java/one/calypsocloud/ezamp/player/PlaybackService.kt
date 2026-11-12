@@ -135,8 +135,7 @@ class PlaybackService : MediaSessionService() {
     private fun absolutePosition(): Long {
         val p = player ?: return 0L
         val uri = p.currentMediaItem?.localConfiguration?.uri?.toString().orEmpty()
-        val ticks = Regex("startTimeTicks=(\\d+)").find(uri)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
-        return ticks / 10_000 + p.currentPosition.coerceAtLeast(0)
+        return one.calypsocloud.ezamp.data.JellyfinApi.transcodeOffsetMs(uri) + p.currentPosition.coerceAtLeast(0)
     }
 
     /** Progress every 10 s keeps the server's position honest without spamming it. */
