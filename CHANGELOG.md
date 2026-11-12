@@ -9,6 +9,7 @@ All notable changes to ezamp are recorded here. The format follows [Keep a Chang
 - **Storage management.** `SET → STORAGE` shows used-of-cap, 1/2/4/8 GB pills (default 4 GB), per-album bytes biggest-first with DELETE plus DELETE EVERYTHING. Album screens show CAP REACHED when the cap refuses new work — the cap refuses, never evicts.
 - **Sync on foreground and network change.** Returning to the app or regaining connectivity syncs when 15 min elapsed since the last success; manual SYNC always bypasses the throttle. A warn banner appears while offline ("NO CONNECTION — tap to browse downloads") with one-tap escape into downloaded mode. No WorkManager, no new dependency.
 - **Header into the title row.** The EZAMP header is gone; Library + SYNC + SET share one row. (Reversible from git history.)
+- **Gapless, both modes.** Ear-verified on a true gapless album in Direct and Saver (2026-11-12 phone probe: 43–45 s prefetch at every boundary). The one earlier ~1 s report was that album's own mastering. M2's last open item, closed.
 
 ### Performance
 - **50k-track validation (synthetic rows, local only).** Every scoped query under 10 ms at 10x the reference library; one new index on `libraryAlbum(created)` removed the only temp B-tree sort (`recentAlbums`/`scopedRecent` → 0.0 ms). Harness kept as a throwaway, untracked.

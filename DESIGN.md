@@ -104,7 +104,7 @@ Local first, server second: the row in SQLite flips immediately (that is what th
 
 ## Track boundaries
 
-Measured on 1.9.4 rather than assumed: a natural transition (`reason=1`) arrives with `PlaybackState=READY`, the next item already buffered 26–38 s ahead, and no `BUFFERING` state change. An explicit 20 s `PreloadConfiguration` produced identical numbers (skip-to-audio 11–17 ms either way) and was removed. Strict gaplessness — encoder delay and padding between consecutive files — is a property of the files, not the player, and remains unmeasured.
+Measured on 1.9.4 rather than assumed: a natural transition arrives with `PlaybackState=READY`, the next item already buffered 26–38 s ahead (43–45 s in the 2026-11-12 phone probe), and no `BUFFERING` state change. An explicit 20 s `PreloadConfiguration` produced identical numbers (skip-to-audio 11–17 ms either way) and was removed. Strict gaplessness verified 2026-11-12: a true gapless album plays seamless in both Direct and Saver on-device; the single earlier ~1 s report traced to that album's own mastering, not the player.
 
 ## Offline downloads
 

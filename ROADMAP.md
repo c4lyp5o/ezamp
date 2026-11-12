@@ -22,7 +22,7 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ Artists tab.
 - ✅ Release configuration: R8, 2.7 MB, and the first trustworthy perf numbers.
 
-## M2 — Playback depth 🚧
+## M2 — Playback depth ✅ 2026-11-12
 
 - ✅ Playlists (shelf, screen, PLAY ALL, per-track play), filtered to playlists that hold music.
 - ✅ Two-phase sync with incremental playlist refresh — 24.9 s → 8.5 s.
@@ -32,7 +32,7 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ **Track boundaries** — measured, not guessed: ExoPlayer 1.9.4 already buffers the next item (boundary arrives in `READY`, 26–38 s buffered, no `BUFFERING` event), so no preload config was needed and none was shipped.
 - ✅ **Play mode** — Direct or Saver (mp3 192k), with downloads following the same switch.
 - ✅ **Favourites** — heart on track rows, local-first then Jellyfin.
-- 🚧 Gapless in the strict sense (encoder delay/padding between consecutive same-codec files) is still unverified — the network boundary is clean, which is a different question.
+- ✅ **Gapless, both modes** — verified by ear on a true gapless album in Direct and Saver, with a boundary-timing probe log showing 43–45 s prefetch at every transition (buffer innocent, renderer handoff clean). The earlier ~1 s report was the first album's own mastering, not the player. M2's last open item, closed 2026-11-12.
 - ✅ Fix the `start` scrobble carrying `pos=0` when a restored queue resumes.
 
 ## M3 — Offline-first hardening ✅ 2026-11-12
