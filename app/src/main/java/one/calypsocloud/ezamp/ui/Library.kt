@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -489,10 +491,12 @@ private fun SettingsSheet(
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val dl by one.calypsocloud.ezamp.data.Downloads.state.collectAsState()
-    var offlineBytes by remember { mutableStateOf(0L) }
-    LaunchedEffect(dl.size) {
-        offlineBytes = one.calypsocloud.ezamp.data.Downloads.totalBytes()
+    val used by one.calypsocloud.ezamp.data.Downloads.used.collectAsState()
+    var capMb by remember { mutableStateOf(Prefs.storageCapMb) }
+    var usage by remember {
+        mutableStateOf<List<one.calypsocloud.ezamp.data.Downloads.AlbumUsage>>(emptyList())
     }
+    LaunchedEffect(dl.size, used) { usage = one.calypsocloud.ezamp.data.Downloads.albumUsage() }
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheet,
@@ -500,7 +504,11 @@ private fun SettingsSheet(
         contentColor = Ink,
         dragHandle = null,
     ) {
-        Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 34.dp)) {
+        Column(
+            Modifier
+                .padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 34.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text("SETTINGS", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Mute)
             Spacer(Modifier.height(22.dp))
 
@@ -553,21 +561,98 @@ private fun SettingsSheet(
             )
 
             Spacer(Modifier.height(22.dp))
+            Hairline()
+            Spacer(Modifier.height(20.dp))
+
+            Text("STORAGE", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = Dim)
+            Spacer(Modifier.height(8.dp))
+            val capBytes = one.calypsocloud.ezamp.data.StoragePolicy.capBytes(capMb)
+            Text(
+                when {
+                    capBytes <= 0L -> "${sizeOf(used)} on device · no cap"
+                    used > capBytes -> "${sizeOf(used)} of ${sizeOf(capBytes)} · OVER CAP"
+                    else -> "${sizeOf(used)} of ${sizeOf(capBytes)}"
+                },
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = when {
+                    used > capBytes && capBytes > 0L -> Ez.Bad
+                    used > 0 -> Ez.Ok
+                    else -> Mute
+                },
+            )
+            Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                listOf(1024, 2048, 4096, 8192).forEach { mb ->
+                    val selected = capMb == mb
+                    Box(
+                        Modifier
+                            .padding(end = 8.dp)
+                            .border(1.dp, if (selected) Accent else Ez.Line, RoundedCornerShape(6.dp))
+                            .clickable { Prefs.storageCapMb = mb; capMb = mb }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            "${mb / 1024} GB",
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = if (selected) Accent else Mute,
+                        )
+                    }
+                }
+            }
+
+            if (usage.isEmpty()) {
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    "OFFLINE  ${if (offlineBytes > 0) "%.1f MB ON DEVICE".format(offlineBytes / 1048576.0) else "NOTHING DOWNLOADED"}",
+                    "NOTHING DOWNLOADED",
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = if (offlineBytes > 0) Ez.Ok else Mute,
-                    modifier = Modifier.weight(1f),
+                    color = Mute,
                 )
-                if (offlineBytes > 0) {
+            } else {
+                Spacer(Modifier.height(12.dp))
+                usage.forEach { u ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                u.name.ifBlank { "—" },
+                                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                color = Ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                "${u.tracks} tracks",
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                color = Mute,
+                            )
+                        }
+                        Text(
+                            sizeOf(u.bytes),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            color = Dim,
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                        Text(
+                            "DELETE",
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = Ez.Bad,
+                            modifier = Modifier
+                                .clickable { one.calypsocloud.ezamp.data.Downloads.deleteAlbum(ctx, u.albumId) }
+                                .padding(vertical = 8.dp, horizontal = 2.dp),
+                        )
+                    }
+                }
+                if (usage.size > 1) {
+                    Spacer(Modifier.height(10.dp))
                     Text(
-                        "DELETE",
+                        "DELETE EVERYTHING",
                         style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                         color = Ez.Bad,
                         modifier = Modifier
                             .clickable { one.calypsocloud.ezamp.data.Downloads.deleteAll(ctx) }
-                            .padding(vertical = 8.dp, horizontal = 6.dp),
+                            .padding(vertical = 8.dp, horizontal = 2.dp),
                     )
                 }
             }
@@ -716,11 +801,13 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
     val queued = rows.count { it.state == one.calypsocloud.ezamp.data.Downloads.QUEUED }
     val failed = rows.count { it.state == one.calypsocloud.ezamp.data.Downloads.FAILED }
     val busy = running + queued > 0
+    val atCap = one.calypsocloud.ezamp.data.Downloads.atCap()
     val dlLabel = when {
         busy -> "DOWNLOADING ${done}/${tracks.size}"
         tracks.isNotEmpty() && done >= tracks.size -> "DOWNLOADED ${done}/${tracks.size}"
         failed > 0 -> "RETRY ${failed}"
         done > 0 -> "DOWNLOADED ${done}/${tracks.size}"
+        atCap -> "CAP REACHED"
         else -> "DOWNLOAD"
     }
     val dlAction: () -> Unit = {
@@ -783,11 +870,12 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                         style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                         color = when {
                             busy -> Ez.Warn
+                            atCap && done == 0 -> Ez.Bad
                             done > 0 && !busy -> Ez.Ok
                             else -> Dim
                         },
                         modifier = Modifier
-                            .clickable(enabled = tracks.isNotEmpty()) { dlAction() }
+                            .clickable(enabled = tracks.isNotEmpty() && !(atCap && done == 0 && !busy)) { dlAction() }
                             .padding(vertical = 10.dp),
                     )
                 }
