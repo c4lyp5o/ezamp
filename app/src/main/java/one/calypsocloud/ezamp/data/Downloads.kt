@@ -55,6 +55,26 @@ object Downloads {
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
+    private val _used = MutableStateFlow(0L)
+
+    /**
+     * Committed bytes on disk, kept in step with [state] rather than re-queried. The SET sheet and
+     * the cap both read this, so they can never disagree with the rows they are describing.
+     */
+    val used: StateFlow<Long> = _used
+
+    private val capStop = HashSet<String>()
+
+    fun capBytes(): Long = StoragePolicy.capBytes(Prefs.storageCapMb)
+
+    /** No room to start another album. The UI says so instead of queueing work that cannot land. */
+    fun atCap(): Boolean = StoragePolicy.atCap(_used.value, Prefs.storageCapMb)
+
+    private fun publish(map: Map<String, Row>) {
+        _state.value = map
+        _used.value = StoragePolicy.used(map.values.filter { it.state == DONE }.map { it.bytes })
+    }
+
     /** Two at a time: enough to saturate a LAN without drowning a spinning disk on the server. */
     private val permits = Semaphore(2)
     private var cancelled = HashSet<String>()
@@ -67,11 +87,11 @@ object Downloads {
                 .associate { it.trackId to it.toRow() }
         }.getOrDefault(emptyMap())
         // A row claiming DONE whose file vanished (cleared data, uninstall leftovers) is not done.
-        _state.value = stored.mapValues { (_, r) ->
+        publish(stored.mapValues { (_, r) ->
             if (r.state == DONE && (r.path == null || !File(r.path).exists())) {
                 r.copy(state = FAILED, error = "file missing")
             } else r
-        }
+        })
     }
 
     fun localFile(trackId: String): File? {
@@ -99,9 +119,31 @@ object Downloads {
         runCatching { LibraryStore.database().libraryQueries.downloadBytesTotal().executeAsOne() }.getOrDefault(0L)
     }
 
+    /** What the storage list shows: one row per album that has something finished on disk. */
+    data class AlbumUsage(val albumId: String, val name: String, val bytes: Long, val tracks: Int)
+
+    suspend fun albumUsage(): List<AlbumUsage> = withContext(Dispatchers.IO) {
+        runCatching {
+            LibraryStore.database().libraryQueries.downloadsByAlbum().executeAsList().map { r ->
+                AlbumUsage(
+                    albumId = r.albumId ?: "",
+                    name = r.name ?: "",
+                    bytes = r.bytes ?: 0L,
+                    tracks = (r.tracks ?: 0L).toInt(),
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
     fun downloadAlbum(ctx: Context, albumId: String, tracks: List<Track>) {
         if (tracks.isEmpty()) return
+        if (atCap()) {
+            // Refuse at the door: the UI shows CAP REACHED, this is the belt to that braces.
+            android.util.Log.w("ezamp-dl", "cap reached (${_used.value} B) — refusing $albumId")
+            return
+        }
         cancelled.remove(albumId)
+        capStop.remove(albumId)
         val pending = tracks.filter { isDownloaded(it.id).not() }
         if (pending.isEmpty()) return
         val base = _state.value.toMutableMap()
@@ -109,7 +151,7 @@ object Downloads {
             val m = if (Prefs.playMode == "saver") "audio/mpeg" else t.mime
             base[t.id] = Row(t.id, albumId, QUEUED, 0, 0, null, null, m)
         }
-        _state.value = base
+        publish(base)
         persist(ctx, pending.map { base.getValue(it.id) })
 
         scope.launch {
@@ -132,25 +174,43 @@ object Downloads {
         if (rows.isEmpty()) return
         rows.forEach { row -> deleteFilesFor(ctx, row.trackId) }
         val dead = rows.map { it.copy(state = FAILED, error = "cancelled") }
-        _state.value = _state.value + dead.associate { it.trackId to it }
+        publish(_state.value + dead.associate { it.trackId to it })
         persist(ctx, dead)
     }
 
     fun deleteAlbum(ctx: Context, albumId: String) {
         val rows = _state.value.values.filter { it.albumId == albumId }
+        // Drop the rows first: the storage figure is derived from them, so it must fall at the same
+        // moment as the files rather than whenever the DB write gets scheduled.
+        publish(_state.value - rows.map { it.trackId }.toSet())
         rows.forEach { row -> row.path?.let { File(it).delete() }; deleteFilesFor(ctx, row.trackId) }
         scope.launch {
             runCatching { LibraryStore.database().libraryQueries.deleteDownloadsForAlbum(albumId) }
-            _state.value = _state.value - rows.map { it.trackId }.toSet()
         }
     }
 
     fun deleteAll(ctx: Context) {
+        publish(emptyMap())
         dir(ctx).listFiles()?.forEach { it.delete() }
         scope.launch {
             runCatching { LibraryStore.database().libraryQueries.deleteAllDownloads() }
-            _state.value = emptyMap()
         }
+    }
+
+    /**
+     * The cap can be crossed inside an album, so the check runs per finished track. What is left
+     * queued is failed with a reason rather than silently dropping — a stopped queue that says why
+     * is the only version he can act on.
+     */
+    private fun stopForCap(ctx: Context, albumId: String?) {
+        if (albumId == null || !capStop.add(albumId)) return
+        cancelled.add(albumId)
+        val queued = _state.value.values.filter { it.albumId == albumId && it.state == QUEUED }
+        if (queued.isEmpty()) return
+        val dead = queued.map { it.copy(state = FAILED, error = "storage cap reached") }
+        publish(_state.value + dead.associate { it.trackId to it })
+        persist(ctx, dead)
+        android.util.Log.w("ezamp-dl", "cap reached at ${_used.value} B — stopped ${dead.size} of $albumId")
     }
 
     private suspend fun fetchOne(ctx: Context, track: Track) {
@@ -193,9 +253,9 @@ object Downloads {
                                 lastPublish = written
                                 val id = track.id
                                 val bytes = written
-                                _state.value = _state.value + (id to
+                                publish(_state.value + (id to
                                     (_state.value[id] ?: Row(id, albumId, RUNNING, 0, total, null, null, mime))
-                                        .copy(state = RUNNING, bytes = bytes, totalBytes = total))
+                                        .copy(state = RUNNING, bytes = bytes, totalBytes = total)))
                             }
                         }
                         out.flush()
@@ -227,10 +287,13 @@ object Downloads {
     ) {
         val albumId = _state.value[track.id]?.albumId
         val row = Row(track.id, albumId, state, bytes, total, path, error, mime)
-        _state.value = _state.value + (track.id to row)
+        publish(_state.value + (track.id to row))
         persist(ctx, listOf(row))
         if (state == FAILED) android.util.Log.w("ezamp-dl", "${track.name} failed: $error")
-        if (state == DONE) android.util.Log.i("ezamp-dl", "${track.name} saved ${bytes / 1024}KB $mime")
+        if (state == DONE) {
+            android.util.Log.i("ezamp-dl", "${track.name} saved ${bytes / 1024}KB $mime")
+            if (StoragePolicy.overCap(_used.value, Prefs.storageCapMb)) stopForCap(ctx, albumId)
+        }
     }
 
     private fun persist(ctx: Context, rows: List<Row>) {
