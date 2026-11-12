@@ -119,7 +119,15 @@ class PlaybackService : MediaSessionService() {
         })
 
         player = exo
-        session = MediaSession.Builder(this, exo).build()
+        // Without a session activity the notification has nothing to fire, so tapping it did nothing.
+        val open = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, one.calypsocloud.ezamp.MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        session = MediaSession.Builder(this, exo).setSessionActivity(open).build()
         startReporting()
     }
 

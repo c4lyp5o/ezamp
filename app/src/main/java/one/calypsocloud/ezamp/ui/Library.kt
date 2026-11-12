@@ -52,12 +52,28 @@ fun Root(onSignOut: () -> Unit) {
     var tab by remember { mutableStateOf(Tab.Library) }
     var albumId by remember { mutableStateOf<String?>(null) }
     var playlistId by remember { mutableStateOf<String?>(null) }
+    var artistOpen by remember { mutableStateOf<String?>(null) }
     var showNow by remember { mutableStateOf(false) }
     var variant by remember { mutableStateOf(Prefs.variant) }
     var playMode by remember { mutableStateOf(Prefs.playMode) }
     var showSettings by remember { mutableStateOf(false) }
 
-    if (showNow && play.active) {
+    // Back peels one layer at a time; only a bare Library lets the system take it to the launcher.
+    // The settings sheet handles its own back through onDismissRequest.
+    val nowOpen = showNow && play.active
+    androidx.activity.compose.BackHandler(
+        enabled = nowOpen || playlistId != null || albumId != null || artistOpen != null || tab != Tab.Library,
+    ) {
+        when {
+            nowOpen -> showNow = false
+            playlistId != null -> playlistId = null
+            albumId != null -> albumId = null
+            artistOpen != null -> artistOpen = null
+            else -> tab = Tab.Library
+        }
+    }
+
+    if (nowOpen) {
         NowPlaying(play = play, onClose = { showNow = false })
         return
     }
@@ -78,6 +94,7 @@ fun Root(onSignOut: () -> Unit) {
                 if (!imeOpen) {
                     NavBar(tab) { t ->
                         albumId = null
+                        playlistId = null
                         tab = t
                     }
                 }
@@ -111,7 +128,12 @@ fun Root(onSignOut: () -> Unit) {
                     onSettings = { showSettings = true },
                 )
                 tab == Tab.Search -> SearchScreen(play)
-                tab == Tab.Artists -> ArtistsScreen(play) { albumId = it }
+                tab == Tab.Artists -> ArtistsScreen(
+                    play = play,
+                    open = artistOpen,
+                    onOpen = { artistOpen = it },
+                    onOpenAlbum = { albumId = it },
+                )
                 else -> FavouritesScreen(lib, play)
             }
         }
@@ -465,9 +487,13 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
 // ------------------------------------------------------------------ artists
 
 @Composable
-private fun ArtistsScreen(play: PlayState, onOpenAlbum: (String) -> Unit) {
+private fun ArtistsScreen(
+    play: PlayState,
+    open: String?,
+    onOpen: (String?) -> Unit,
+    onOpenAlbum: (String) -> Unit,
+) {
     var artists by remember { mutableStateOf<List<one.calypsocloud.ezamp.data.Artist>>(emptyList()) }
-    var open by remember { mutableStateOf<String?>(null) }
     var albums by remember { mutableStateOf<List<Album>>(emptyList()) }
     var needResync by remember { mutableStateOf(false) }
     val lib by LibraryStore.state.collectAsState()
@@ -510,7 +536,7 @@ private fun ArtistsScreen(play: PlayState, onOpenAlbum: (String) -> Unit) {
                     "‹  BACK",
                     style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                     color = Dim,
-                    modifier = Modifier.clickable { open = null }.padding(vertical = 6.dp),
+                    modifier = Modifier.clickable { onOpen(null) }.padding(vertical = 6.dp),
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(open ?: "", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
@@ -530,7 +556,7 @@ private fun ArtistsScreen(play: PlayState, onOpenAlbum: (String) -> Unit) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { open = a.name }
+                            .clickable { onOpen(a.name) }
                             .padding(horizontal = 22.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
