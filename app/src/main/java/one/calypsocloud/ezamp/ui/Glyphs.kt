@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
@@ -24,13 +26,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 
+/**
+ * A short key-press tick for transport controls. View haptics need no VIBRATE permission and follow
+ * the phone's own "Touch feedback" setting, so listeners who turned it off feel nothing.
+ */
+@Composable
+internal fun rememberTap(): () -> Unit {
+    val view = LocalView.current
+    return remember(view) { { view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY) } }
+}
+
 /** Hand-drawn transport controls: no icon dependency, no font-dependent glyphs. */
 @Composable
 fun PlayPause(playing: Boolean, size: Dp = 56.dp, tint: Color = Ink, onClick: () -> Unit) {
+    val tap = rememberTap()
     Box(
         modifier = Modifier
             .size(size)
-            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { tap(); onClick() }
             .semantics { contentDescription = if (playing) "Pause" else "Play" },
         contentAlignment = Alignment.Center,
     ) {
@@ -56,10 +69,11 @@ fun PlayPause(playing: Boolean, size: Dp = 56.dp, tint: Color = Ink, onClick: ()
 
 @Composable
 fun SkipGlyph(next: Boolean, size: Dp = 34.dp, tint: Color = Dim, onClick: () -> Unit) {
+    val tap = rememberTap()
     Box(
         modifier = Modifier
             .size(size)
-            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { tap(); onClick() }
             .semantics { contentDescription = if (next) "Next track" else "Previous track" },
         contentAlignment = Alignment.Center,
     ) {

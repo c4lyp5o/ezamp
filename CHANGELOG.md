@@ -5,6 +5,9 @@ All notable changes to ezamp are recorded here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+- **Haptic tick** on play/pause, previous/next (Now Playing, mini player, album screen) and on mini-player swipe-to-skip. Uses the phone's touch-feedback setting; no vibrate permission.
+
 ### Fixed
 - **Now Playing on short (16:9) screens** no longer pushes the queue counter off the bottom: the cover takes the height left after the fixed rows (a full-width square on tall phones, slightly smaller on 1080×1920). Checked at normal and 130% text.
 - **Numeric genres:** ID3v1 codes ("13") and ID3v2.3 forms ("(13)", "(13)Pop", "(RX)", "(CR)") become names at sync, so GENRES shows "Pop" instead of "13" and merges it with an existing "Pop". This library went from 195 to 181 distinct genres; codes outside the 0–191 table stay as written.

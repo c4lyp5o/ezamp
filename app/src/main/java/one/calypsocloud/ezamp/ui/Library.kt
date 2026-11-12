@@ -935,6 +935,7 @@ private fun MiniPlayer(play: PlayState, onOpen: () -> Unit, onToggle: () -> Unit
     var slide by remember { mutableStateOf(0f) }
     val scope = rememberCoroutineScope()
     val skipAt = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
+    val tap = rememberTap()
     Column {
         Hairline()
         Row(
@@ -946,8 +947,8 @@ private fun MiniPlayer(play: PlayState, onOpen: () -> Unit, onToggle: () -> Unit
                     state = androidx.compose.foundation.gestures.rememberDraggableState { dx -> slide += dx },
                     onDragStopped = {
                         when {
-                            slide < -skipAt -> PlayerHolder.next()
-                            slide > skipAt -> PlayerHolder.prev()
+                            slide < -skipAt -> { tap(); PlayerHolder.next() }
+                            slide > skipAt -> { tap(); PlayerHolder.prev() }
                         }
                         scope.launch { androidx.compose.animation.core.animate(slide, 0f) { v, _ -> slide = v } }
                     },
