@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import one.calypsocloud.ezamp.player.PlayState
 import one.calypsocloud.ezamp.player.PlayerHolder
+import one.calypsocloud.ezamp.player.SleepTimer
 import kotlinx.coroutines.launch
 
 @Composable
@@ -59,24 +60,25 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
             .navigationBarsPadding()
             .padding(horizontal = 24.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // A Box, not a Row: the title stays centred whatever width the sleep label has.
+        Box(Modifier.fillMaxWidth()) {
             Text(
                 "⌄",
                 style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
                 color = Dim,
                 modifier = Modifier
+                    .align(Alignment.CenterStart)
                     .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClose() }
                     .semantics { contentDescription = "Close Now Playing" }
                     .padding(vertical = 14.dp, horizontal = 4.dp),
             )
-            Spacer(Modifier.weight(1f))
             Text(
                 "NOW PLAYING",
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                 color = Dim,
+                modifier = Modifier.align(Alignment.Center),
             )
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.width(28.dp))
+            SleepLabel(Modifier.align(Alignment.CenterEnd))
         }
 
         Spacer(Modifier.height(10.dp))
@@ -167,3 +169,48 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
     }
 }
 
+/** "SLEEP", or the time left in the accent; tap for 15–60 min, end of track, or off. */
+@Composable
+private fun SleepLabel(modifier: Modifier = Modifier) {
+    val sleep by SleepTimer.state.collectAsState()
+    var open by remember { mutableStateOf(false) }
+    // Ticks once a second only while a countdown is running and this screen is showing.
+    val now by produceState(android.os.SystemClock.elapsedRealtime(), sleep) {
+        while (sleep.endsAtMs > 0L) {
+            value = android.os.SystemClock.elapsedRealtime()
+            kotlinx.coroutines.delay(1_000)
+        }
+    }
+    val label = when {
+        sleep.endOfTrack -> "END OF TRACK"
+        sleep.endsAtMs > 0L -> fmt((sleep.endsAtMs - now).coerceAtLeast(0L))
+        else -> "SLEEP"
+    }
+    Box(modifier) {
+        Text(
+            label,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+            color = if (sleep.active) Accent else Dim,
+            modifier = Modifier
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { open = true }
+                .semantics { contentDescription = if (sleep.active) "Sleep timer: $label. Change" else "Sleep timer" }
+                .padding(vertical = 14.dp, horizontal = 4.dp),
+        )
+        androidx.compose.material3.DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = Ez.Surface,
+        ) {
+            @Composable
+            fun choice(text: String, onClick: () -> Unit) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(text, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = Ink) },
+                    onClick = { onClick(); open = false },
+                )
+            }
+            listOf(15, 30, 45, 60).forEach { m -> choice("$m min") { SleepTimer.start(m) } }
+            choice("End of track") { SleepTimer.endOfTrack() }
+            if (sleep.active) choice("Turn off") { SleepTimer.cancel() }
+        }
+    }
+}

@@ -133,6 +133,7 @@ class PlaybackService : MediaSessionService() {
         })
 
         player = exo
+        SleepTimer.attach(exo)
         // Without a session activity the notification has nothing to fire, so tapping it did nothing.
         val open = android.app.PendingIntent.getActivity(
             this,
@@ -215,6 +216,7 @@ class PlaybackService : MediaSessionService() {
         player?.let { p ->
             p.currentMediaItem?.mediaId?.let { report("stop", it, p.currentPosition.coerceAtLeast(0), false) }
         }
+        player?.let { SleepTimer.detach(it) }
         scope.cancel()
         session?.let { s ->
             s.player.release()
