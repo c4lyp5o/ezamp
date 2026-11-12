@@ -23,7 +23,7 @@ object SleepTimer {
     }
 
     private const val FADE_MS = 10_000L
-    private const val FADE_STEPS = 20
+    private const val TICK_MS = 500L
 
     private val mutable = MutableStateFlow(State())
     val state: StateFlow<State> = mutable
@@ -59,15 +59,21 @@ object SleepTimer {
         cancel()
         val total = minutes * 60_000L
         mutable.value = State(endsAtMs = SystemClock.elapsedRealtime() + total)
+        val deadline = mutable.value.endsAtMs
         countdown = scope.launch {
-            delay((total - FADE_MS).coerceAtLeast(0L))
-            val p = player ?: return@launch cancel()
-            val from = p.volume
-            fadeFrom = from
-            for (step in 1..FADE_STEPS) {
-                p.volume = from * (1f - step.toFloat() / FADE_STEPS)
-                delay(FADE_MS / FADE_STEPS)
+            // Handler delays use uptime, which excludes deep sleep. Keep waits short and derive
+            // both the fade and expiry from elapsed time, including after the device resumes.
+            while (true) {
+                val remaining = (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+                if (remaining == 0L) break
+                if (remaining <= FADE_MS) {
+                    val p = player ?: return@launch cancel()
+                    val from = fadeFrom ?: p.volume.also { fadeFrom = it }
+                    p.volume = from * (remaining.toFloat() / FADE_MS)
+                }
+                delay(minOf(remaining, TICK_MS))
             }
+            val p = player ?: return@launch cancel()
             p.pause()
             android.util.Log.i("ezamp-sleep", "paused after $minutes min")
             cancel()

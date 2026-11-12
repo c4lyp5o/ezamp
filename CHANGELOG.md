@@ -3,7 +3,7 @@
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
 
-## [Unreleased]
+## [0.9.2] — 2026-11-13
 
 ### Added
 - **Local playlists.** Hold any track (Tracks, search, genre, album, playlist, Favourites) to open ADD TO PLAYLIST: every local playlist as a ●/○ row that toggles membership, plus + NEW PLAYLIST inline. NEW on the Playlists tab makes an empty one. A local playlist opens like any other (PLAY ALL, SHUFFLE, DOWNLOAD) with RENAME and a two-tap DELETE. They live only on this phone (migration 8: `localPlaylist`, `localPlaylistTrack`), keyed to the server and user, untouched by sync and sign-out; nothing is sent to Jellyfin. Server playlists stay read-only. The hold gives the long-press tick and TalkBack offers it as "Add to playlist".
@@ -12,6 +12,9 @@ All notable changes to ezamp are recorded here. The format follows [Keep a Chang
 - **Haptic tick** on play/pause, previous/next (Now Playing, mini player, album screen) and on mini-player swipe-to-skip. Uses the phone's touch-feedback setting; no vibrate permission.
 
 ### Fixed
+- **Rapid playlist membership taps** are saved in tap order by one IO consumer, even if the sheet closes. Membership reloads wait for pending edits so an older query cannot replace the latest selection.
+- **Queue restore/save race:** reads, writes and the cached queue/id pair now share one IO-side lock, preventing a restore from associating a new queue with an old id.
+- **Sleep timer after suspension:** expiry and fade volume use the elapsed-time deadline, with waits capped at 500 ms. Resuming after the deadline pauses immediately when the next timer tick runs instead of waiting out the old countdown.
 - **Counts read "1 tracks", "1 albums"**; every count now says "1 track", "1 album", "1 genre"….
 - **A restored, paused track showed its length as 0:00** until it played (the player knows no duration before it prepares); the queue's own duration fills in.
 - **Radio leftovers removed:** `queue-rotation.json` and `files/radio/` from the shelved radio builds are deleted on the next start.
@@ -25,7 +28,8 @@ All notable changes to ezamp are recorded here. The format follows [Keep a Chang
 - **Accessibility:** play/pause, previous/next, close Now Playing, favourite hearts and clear search now have spoken labels and a button role for TalkBack ("Pause", "Next track", "Add to favourites"…). Library, album, Playlists, Settings and Now Playing checked at 130% system text: nothing clipped.
 
 ### Validation
-- Windows `assembleRelease`, 41 JVM tests (4 new genre-code cases). Emulator 1080×1920: counter bounds y 1825–1857 inside the screen; content descriptions present in the view hierarchy; post-sync query shows no numeric genres left.
+- Windows `assembleRelease`, all 48 JVM tests (including genre-code and local-playlist query cases), and `verifyDebugEzampDbMigration` passed. Emulator 1080×1920: counter bounds y 1825–1857 inside the screen; content descriptions present in the view hierarchy; post-sync query shows no numeric genres left. Review regression checks: 20 rapid playlist toggles, final-add persistence after sheet close/restart (SQLite checked), and process-death queue restore at the saved 2,737 ms. Sleep countdown selection/cancellation and end-of-track stopping were checked. Physical-device deep-sleep timing remains unverified.
+
 ## [0.9.1] — 2026-11-12
 
 ### Changed

@@ -86,7 +86,18 @@ internal fun TrackSheet(held: HeldTrack, onClose: () -> Unit): Unit {
     val lib by LibraryStore.state.collectAsState()
     val t = held.track
     var member by remember(t.id) { mutableStateOf<Set<String>>(emptySet()) }
-    LaunchedEffect(t.id, lib.localVersion) { member = LibraryStore.localPlaylistsWith(t.id) }
+    var ready by remember(t.id) { mutableStateOf(false) }
+    var pending by remember(t.id) { mutableStateOf(0) }
+    var revision by remember(t.id) { mutableStateOf(0) }
+    LaunchedEffect(t.id, lib.localVersion, pending) {
+        if (pending != 0) return@LaunchedEffect
+        val readingRevision = revision
+        val saved = LibraryStore.localPlaylistsWith(t.id)
+        if (pending == 0 && readingRevision == revision) {
+            member = saved
+            ready = true
+        }
+    }
     var naming by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -115,8 +126,17 @@ internal fun TrackSheet(held: HeldTrack, onClose: () -> Unit): Unit {
             lib.localPlaylists.forEach { pl ->
                 val inIt = pl.id in member
                 ChoiceRow(title = pl.name, detail = plural("track", pl.trackCount), selected = inIt) {
-                    member = if (inIt) member - pl.id else member + pl.id
-                    edit(scope) { LibraryStore.setInLocal(pl.id, t.id, !inIt) }
+                    if (ready) {
+                        // Read live state: a second tap can arrive before this row recomposes.
+                        val adding = pl.id !in member
+                        member = if (adding) member + pl.id else member - pl.id
+                        revision++
+                        pending++
+                        val result = LibraryStore.setInLocal(pl.id, t.id, adding)
+                        edit(scope) {
+                            try { result.await() } finally { pending-- }
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))

@@ -2,6 +2,9 @@ package one.calypsocloud.ezamp.data
 
 import android.content.Context
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -577,14 +580,39 @@ object LibraryStore {
         id
     }
 
-    suspend fun setInLocal(playlistId: String, trackId: String, member: Boolean): Unit = withContext(Dispatchers.IO) {
-        val queries = q()
-        queries.transaction {
-            if (member) queries.addLocalPlaylistTrack(playlistId, trackId)
-            else queries.removeLocalPlaylistTrack(playlistId, trackId)
-            queries.touchLocalPlaylist(System.currentTimeMillis(), playlistId)
+    private class MembershipEdit(
+        val playlistId: String,
+        val trackId: String,
+        val member: Boolean,
+        val result: CompletableDeferred<Unit> = CompletableDeferred(),
+    )
+
+    // Enqueue on the calling thread, before dispatching to IO. One consumer preserves tap order
+    // and finishes accepted edits even if their sheet closes while a database operation is pending.
+    private val membershipEdits = Channel<MembershipEdit>(Channel.UNLIMITED).also { edits ->
+        scope.launch {
+            for (edit in edits) {
+                try {
+                    val queries = q()
+                    queries.transaction {
+                        if (edit.member) queries.addLocalPlaylistTrack(edit.playlistId, edit.trackId)
+                        else queries.removeLocalPlaylistTrack(edit.playlistId, edit.trackId)
+                        queries.touchLocalPlaylist(System.currentTimeMillis(), edit.playlistId)
+                    }
+                    publishLocal()
+                    edit.result.complete(Unit)
+                } catch (e: Exception) {
+                    android.util.Log.w("ezamp-lists", "membership edit failed: ${e.message}")
+                    edit.result.completeExceptionally(e)
+                }
+            }
         }
-        publishLocal()
+    }
+
+    fun setInLocal(playlistId: String, trackId: String, member: Boolean): Deferred<Unit> {
+        val edit = MembershipEdit(playlistId, trackId, member)
+        check(membershipEdits.trySend(edit).isSuccess)
+        return edit.result
     }
 
     suspend fun renameLocal(playlistId: String, name: String): Unit = withContext(Dispatchers.IO) {

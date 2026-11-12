@@ -35,9 +35,9 @@ object QueueStore {
     private val writes = Channel<Write>(Channel.CONFLATED)
     private val writer = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Owned by the writer coroutine; load() seeds them so a restored queue is not rewritten at once.
-    @Volatile private var writtenTracks: List<Track>? = null
-    @Volatile private var writtenId: String = ""
+    // Guarded by this object's monitor, including load's cache seeding and both file reads.
+    private var writtenTracks: List<Track>? = null
+    private var writtenId: String = ""
 
     init {
         writer.launch {
@@ -58,6 +58,7 @@ object QueueStore {
         check(tmp.renameTo(file(ctx, name)))
     }
 
+    @Synchronized
     private fun save(ctx: Context, tracks: List<Track>, index: Int, positionMs: Long) {
         if (tracks.isEmpty()) {
             clear(ctx)
@@ -100,6 +101,7 @@ object QueueStore {
     }
 
     /** Blocking file read: call from Dispatchers.IO. */
+    @Synchronized
     fun load(ctx: Context): Saved? = runCatching {
         // Left behind by the shelved radio builds; nothing reads them any more.
         file(ctx, "queue-rotation.json").takeIf { it.exists() }?.delete()
