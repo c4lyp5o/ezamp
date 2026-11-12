@@ -2,10 +2,13 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
-## [Unreleased]
+## [0.9.1] — 2026-11-12
 
 ### Changed
 - **Favourites is a playlist.** The FAVOURITES tab is gone (nav: LIBRARY · PLAYLISTS); Favourites is a permanent first entry in PLAYLISTS with a drawn heart cover, opening like any playlist with PLAY ALL and SHUFFLE. It is local, so it shows even with no server playlists.
+
+### Fixed
+- **Hearts on track rows drew as the red system emoji** and ignored the accent; they now ask for text presentation (U+FE0E) and take the tint like the outline heart.
 
 ## [0.9.0] — 2026-11-12
 

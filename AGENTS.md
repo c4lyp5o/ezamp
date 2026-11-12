@@ -13,7 +13,9 @@ app/src/main/java/one/calypsocloud/ezamp/
   player/PlaybackService.kt  MediaSessionService + ExoPlayer + scrobble reporting
   player/PlayerHolder.kt     MediaController facade, PlayState, queue persistence
   player/QueueStore.kt       queue.json (session state, not library data)
-  ui/*.kt                Compose screens; Theme.kt holds the ez house-style tokens
+  ui/Library.kt          Root (all navigation state + back), album/playlist/favourites screens
+  ui/Browse.kt           Library carousel, search field, pages, artist/genre screens, playlists tab
+  ui/*.kt                other Compose screens; Theme.kt holds the ez house-style tokens
 app/src/main/sqldelight/one/calypsocloud/ezamp/db/
   Library.sq             current schema + queries
   1.sqm, 2.sqm           migrations; each new table/column needs one
@@ -34,6 +36,8 @@ Redirect Gradle to a log file and read the log; piping it through `findstr`/`Sel
 Always build **`assembleRelease`**. Debug builds are 6× larger, unminified, and their performance numbers are meaningless (R8 and cold JIT differ enough to invert a conclusion — see [DESIGN.md](DESIGN.md#performance-budgets)).
 
 ## Device testing
+
+An Android emulator (`emulator-5554`, headless) runs on the build box itself; drive it with that box's `C:\android-sdk\platform-tools\adb.exe` over SSH. Build there too — never on the Linux dev box. The phone below is for checks the emulator cannot make (real radios, real battery).
 
 Wireless ADB to the phone. The connect port **rotates every time wireless debugging is toggled or the screen sleeps**, so never hardcode it:
 

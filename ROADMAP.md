@@ -19,12 +19,12 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ Onboarding: server URL probe → Jellyfin check → username/password; no API key in the app.
 - ✅ Reversible layouts (art-forward default, classic dense list).
 - ✅ Sign-in failure paths tested: unreachable host, non-Jellyfin host, wrong password.
-- ✅ Artists tab.
+- ✅ Artists tab (an ARTISTS carousel page since 0.9.0).
 - ✅ Release configuration: R8, 2.7 MB, and the first trustworthy perf numbers.
 
 ## M2 — Playback depth ✅ 2026-11-12
 
-- ✅ Playlists (shelf, screen, PLAY ALL, per-track play), filtered to playlists that hold music.
+- ✅ Playlists (shelf, screen, PLAY ALL, per-track play), filtered to playlists that hold music. A tab of their own since 0.9.0.
 - ✅ Two-phase sync with incremental playlist refresh — 24.9 s → 8.5 s.
 - ✅ Queue persistence and resume across process death.
 - ✅ Scrobbling: start/progress/stop to Jellyfin.
@@ -48,6 +48,14 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ JVM unit tests on every gate (34), migration verification against shipped schema snapshots.
 - ✅ Migration 5 for the 0.7.0 recency index that upgraded installs never received.
 
+## M3.6 — Navigation and browsing ✅ 2026-11-12 (0.9.0, 0.9.1)
+
+- ✅ Back steps out one layer at a time; the media notification opens the app.
+- ✅ Library carousel (ALBUMS · TRACKS · ARTISTS · GENRES) with search per page; the SEARCH and ARTISTS tabs retired.
+- ✅ Genres — `libraryTrackGenre` + migration 7, `databases/7.db` snapshot of 0.8.0.
+- ✅ Two tabs: LIBRARY · PLAYLISTS, with Favourites as a permanent playlist.
+- ✅ Shuffle and repeat, SHUFFLE on lists, swipe gestures on Now Playing and the mini player.
+
 ## M4 — Desktop (Kotlin Multiplatform) ⬜
 
 - ⬜ Extract the platform-independent core: DTOs, API client, schema, sync logic.
@@ -63,7 +71,9 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
 - ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
 - ⬜ Crossfade, equalizer, sleep timer — only if they can be done without touching the UI thread.
-- ⬜ Accessibility pass: content descriptions on the Canvas icons, dynamic type.
+- ⬜ Accessibility pass: content descriptions on the Canvas icons (shuffle and repeat have them since 0.9.0), dynamic type.
+- ⬜ ID3v1 numeric genres ("13", "137") show as numbers; map the code table if they matter.
+- ⬜ Now Playing on short (16:9) screens clips the queue counter under the transport.
 
 ## Non-goals
 

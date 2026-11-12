@@ -1,10 +1,10 @@
 # HANDOFF
 
-Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-12 for 0.6.0. Read this before touching code; it exists so you do not rediscover the traps.
+Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-12 for 0.9.1. Read this before touching code; it exists so you do not rediscover the traps.
 
 ## State
 
-Version **0.6.0**. Everything below marked ✅ was verified on the device, not assumed.
+Version **0.9.1**. Everything below marked ✅ was verified on a device, not assumed; rows added in 0.9.x were verified on the Android emulator (`emulator-5554` on the build box), not yet on the phone.
 
 Device used: Nothing A063 (Spacewar), Android 15, wireless ADB. Server: Jellyfin 12.4.0 "The Pirate Bay" at `192.168.1.50:8096` on the LAN, library 5,535 tracks / 532 albums / 54 album artists / 31 playlists (4 with music).
 
@@ -13,8 +13,12 @@ Device used: Nothing A063 (Spacewar), Android 15, wireless ADB. Server: Jellyfin
 | Local index (SQLite) | ✅ albums, tracks, search, favourites, counts |
 | Onboarding | ✅ URL probe, Jellyfin check, username/password, all failure paths |
 | Layouts | ✅ art-forward and classic, switchable in SET |
-| Artists | ✅ grouped by album artist, tap-through |
-| Playlists | ✅ shelf + screen + playback, video playlists filtered out |
+| Navigation | ✅ LIBRARY · PLAYLISTS tabs; back peels one layer, leaves only from bare Library; notification opens the app (0.9.x, emulator) |
+| Library carousel | ✅ ALBUMS · TRACKS · ARTISTS · GENRES label strip, one page per swipe, search per page (0.9.0, emulator) |
+| Artists | ✅ every credited name (0.8.0), tap-through |
+| Genres | ✅ migration 7, `;`-split tags, 195 genres here, genre → track list (0.9.0, emulator) |
+| Shuffle / repeat | ✅ current track leads the shuffle order; 12/12 tracks played once (0.9.0, emulator) |
+| Playlists | ✅ own tab, Favourites pinned first as a permanent playlist, video playlists filtered out |
 | Sync | ✅ two-phase, incremental; 8.5 s warm |
 | Playback | ✅ MediaSessionService, background-safe, notification |
 | Queue/resume | ✅ survives process death, ±5 s |
@@ -35,10 +39,10 @@ Latest measured (release/R8):
 
 1. **Cold tap is ~312 ms direct, ~678 ms in Saver.** Direct is close to the floor; Saver pays ffmpeg start-up (measured twice). If Saver is used at home, expect the first second to feel softer than Direct.
 2. ~~`start` scrobble can carry `pos=0`~~ — fixed: absolute positions plus a 700 ms delay before the start report; verified `pos=124820ms`.
-3. **Artists are album artists only** — 54 here versus 127 artists Jellyfin knows. Track-level-only artists (features, splits) need their own table from `/Artists`.
+3. ~~**Artists are album artists only**~~ — fixed in 0.8.0 (`libraryTrackArtist`); 122 artists here.
 4. ~~**Offline downloads are album-level only**~~ — M3 shipped all of it except playlist-level download: downloaded-only SQL scope + badges + chip + guard (proven on device), STORAGE section with refusing cap + per-album delete, foreground/network sync with throttle + banner, 50k-query validation (all scoped <10 ms). Playlist download shipped in 0.8.0.
 5. **CPU while playing is 12%** of one core: decode + `HwBinder`, UI thread idle. Media3 1.9.4 removed `setEnableAudioOffload`, so there is no offload shortcut on this version. Only chase this if battery complaints appear.
-6. ~~**No automated tests.**~~ 0.8.0: 34 JVM tests in `app/src/test` run on every gate (`testDebugUnitTest`), plus `verifyDebugEzampDbMigration`. Not yet covered: `QueueStore` round-trip, sync transforms, any UI.
+6. ~~**No automated tests.**~~ 0.9.0: 37 JVM tests (34 in 0.8.0, plus `GenreTags`) in `app/src/test` run on every gate (`testDebugUnitTest`), plus `verifyDebugEzampDbMigration`. Not yet covered: `QueueStore` round-trip, sync transforms, any UI.
 
 ## How to build and install
 
@@ -75,8 +79,8 @@ These each cost real debugging time; the reasoning is in [DESIGN.md](DESIGN.md) 
 
 ## First moves for the next session
 
-1. Build release, install, confirm 0.6.0 in the app and that the library still syncs (`ezamp-perf` line).
-2. M3 remainder: downloaded-only browsing and playback as a first-class state, a storage cap with per-album delete and re-download, and sync on a schedule and on network change.
+1. Build release, install, confirm 0.9.1 in the app and that the library still syncs (`ezamp-perf` lines `sync=` and `genres=`).
+2. Confirm the 0.9.x navigation on the phone (it was verified on the emulator): back order, carousel swipe, notification tap, shuffle coverage.
 3. Cold tap in Saver is 678 ms, which is ffmpeg start-up on the server, not the client. Only chase it if the first second of a Saver track becomes a reason not to use Saver.
 4. Keep `ezamp-perf` logging intact and add a line per new hot path — it is the only regression signal that exists.
 

@@ -26,7 +26,7 @@ Rules that keep the layers honest:
 
 - **UI never calls the API.** Screens read `LibraryStore.state` and call `LibraryStore` suspend functions; only the store and the player service talk HTTP.
 - **The player never reaches into the library.** Artwork, title, artist and album travel inside `MediaMetadata`; `PlayState` is built from the player, not from a lookup.
-- **Sync writes, UI reads.** A sync replaces the index inside one transaction; `refresh()` then re-reads small aggregates (album list, favourites, playlists, counts). The full track list is never materialised in memory — `trackCount` is a `COUNT(*)`.
+- **Sync writes, UI reads.** A sync replaces the index inside one transaction; `refresh()` then re-reads small aggregates (album list, favourites, playlists, counts). `trackCount` is a `COUNT(*)`; the full track list is materialised only while the TRACKS page is open (5,535 rows in ~104 ms on the emulator, reloaded when a sync, the offline scope or a favourite changes), and tapping a row queues a 300-track window around it rather than the whole list.
 
 ## Data model
 
@@ -38,7 +38,8 @@ SQLite through SQLDelight 2.4.1 (`app/src/main/sqldelight/.../Library.sq`). Tabl
 | `libraryTrack` | one row per audio item | `albumId`, `haystack` (lowercased `title + artist + album`), `favourite`, `container`, `durationMs` |
 | `libraryPlaylist` | one row per playlist holding music | `trackCount` = **stored audio rows**, `remoteCount` = server's `ChildCount` (change detection) |
 | `libraryPlaylistTrack` | playlist membership | `(playlistId, trackId, position)` |
-| `libraryTrackArtist` | every name credited on a track, plus its album artist | `(trackId, artist)`; drives the artists tab |
+| `libraryTrackArtist` | every name credited on a track, plus its album artist | `(trackId, artist)`; drives the ARTISTS page |
+| `libraryTrackGenre` | every genre on a track, multi-genre tags split on `;` (`GenreTags`) | `(trackId, genre)`, `genre` indexed `COLLATE NOCASE`; drives the GENRES page |
 | `libraryDownload` | offline copies (own table; `mime` captured at fetch time) | `state` (0 queued, 1 downloading, 2 done, 3 failed), `bytes`, `totalBytes`, `path` |
 
 Indexes cover `libraryTrack(albumId)`, `libraryTrack(sortName)`, `libraryAlbum(sortName)` and `libraryPlaylistTrack(playlistId, position)`.
@@ -98,6 +99,14 @@ All player reads stay on `Dispatchers.Main`; only the HTTP call moves to IO. Thi
 - the duration comes from the queue's metadata, because a live transcode reports none.
 
 `PlaybackService.absolutePosition()` re-derives the offset from the URL rather than being handed it, which keeps the service independent of the UI-side queue.
+
+## Navigation
+
+Two tabs, LIBRARY and PLAYLISTS; Favourites is a permanent local playlist at the head of PLAYLISTS, not a tab. `Root` owns every piece of navigation state — tab, carousel pager, search query, the open album/playlist/artist/genre, and one `LazyListState` per list — so a detail round trip restores the page, the query and the scroll position. One `BackHandler` peels a layer per press: Now Playing, detail screen, the other tab, the query, the carousel page; only bare Library on ALBUMS lets the system leave the app.
+
+The Library label strip is a fixed-width `HorizontalPager` with the active label centred, but its drag is ours (`userScrollEnabled = false`): the label follows the finger clamped to one page either way and a quarter page commits. The pager's own gesture let a medium swipe drag past one label and then fling past another.
+
+**Shuffle.** ExoPlayer's shuffle order is random over the whole queue, so the current track can land mid-order and everything before it never plays. `PlaybackService` keeps the current track first whenever shuffle turns on or the queue is replaced (`DefaultShuffleOrder` with the current index leading; a no-op when it already leads, which also stops it re-triggering itself). Verified: a shuffled 12-track playlist played all 12 once, then stopped.
 
 ## Favourites
 

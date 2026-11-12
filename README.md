@@ -2,7 +2,7 @@
 
 A fast, local-first Jellyfin music client for Android. ezamp keeps its own index of your library on the device; Jellyfin is a sync source and a file host, never part of the browsing path. Part of the `ez-*` family alongside ezmail, eziarr and ezhost.
 
-**Status: 0.9.0** — library browsed as a swipeable ALBUMS · TRACKS · ARTISTS · GENRES carousel with search in place, a playlists tab, favourites, shuffle and repeat, gapless playback in Direct and Saver, queue restore and scrobbling are working on device. Offline: album and playlist downloads, downloaded-only mode, a storage cap, and sync on foreground/network. Desktop is next ([ROADMAP.md](ROADMAP.md)). Verified 2026-11-11 on a Nothing A063 (Android 15) against Jellyfin 12.4.0; the 0.9.0 navigation, carousel, genres and shuffle work verified 2026-11-12 on the Android emulator.
+**Status: 0.9.1** — library browsed as a swipeable ALBUMS · TRACKS · ARTISTS · GENRES carousel with search in place, a playlists tab led by a permanent Favourites playlist, shuffle and repeat, gapless playback in Direct and Saver, queue restore and scrobbling are working on device. Offline: album and playlist downloads, downloaded-only mode, a storage cap, and sync on foreground/network. Desktop is next ([ROADMAP.md](ROADMAP.md)). Verified 2026-11-11 on a Nothing A063 (Android 15) against Jellyfin 12.4.0; the 0.9.x navigation, carousel, genres, Favourites playlist and shuffle work verified 2026-11-12 on the Android emulator.
 
 ## Why this exists
 
@@ -33,14 +33,16 @@ Battery/CPU while playing is decode and audio routing, not UI: the main thread i
 ## Features
 
 - **Any Jellyfin server.** Onboarding asks for the server URL, checks it is really a Jellyfin server (`/System/Info/Public`), then signs in with username and password (`/Users/AuthenticateByName`). No API key is stored in or shipped with the app.
-- **Library:** recently added shelf, album grid, dense list alternative, per-album track lists, favourites, artists derived from album artists.
-- **Search:** instant, on-device, over a pre-lowercased haystack column.
-- **Playlists:** only playlists that actually contain music are shown; a Jellyfin playlist that is all video is not a music playlist.
+- **Two tabs:** LIBRARY and PLAYLISTS. Back steps out one layer at a time and only leaves the app from bare Library.
+- **Library:** a label strip you swipe (one page per swipe) or tap — ALBUMS (recently added shelf, then every album), TRACKS (all of them A–Z), ARTISTS (every credited name, features included), GENRES (multi-genre tags split on `;`).
+- **Search:** one field under the strip filters whichever page is showing; instant and on-device (tracks over a pre-lowercased haystack column).
+- **Playlists:** a permanent Favourites playlist first, then the server's playlists that actually contain music; a Jellyfin playlist that is all video is not a music playlist.
 - **Playback:** plays from the `MediaSessionService`, survives leaving the app, position ticker only runs while a screen shows progress.
 - **Resume:** the queue and playhead survive the process being killed. Reopen and it is where you left it.
 - **Scrobbling:** start, progress (every 10 s) and stop are reported to Jellyfin, so play counts and "continue listening" stay truthful.
 - **Play mode:** Direct (server's own file) or Saver (mp3 192k transcode). Measured on this library: an album is 205 MB direct and 79 MB in saver — 61 % smaller — for roughly 300 ms extra to first audio.
-- **Favourites:** heart on any track row, written locally first and synced to Jellyfin.
+- **Favourites:** heart on any track row, written locally first and synced to Jellyfin; they gather in the Favourites playlist.
+- **Shuffle and repeat** (off/all/one) in Now Playing, remembered across restarts; SHUFFLE on album, playlist and genre screens. Swipe Now Playing down to close, swipe the mini player to skip, and tap the media notification to come back.
 - **Offline downloads:** download an album from its screen; when it is finished the same queue plays from disk with the radios off. Storage used is shown in SET, with one-tap delete.
 - **Two layouts**, switchable at any time from the SET sheet: art-forward (default) and classic dense rows.
 
