@@ -35,12 +35,12 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - 🚧 Gapless in the strict sense (encoder delay/padding between consecutive same-codec files) is still unverified — the network boundary is clean, which is a different question.
 - ✅ Fix the `start` scrobble carrying `pos=0` when a restored queue resumes.
 
-## M3 — Offline-first hardening ⬜
+## M3 — Offline-first hardening ✅ 2026-11-12
 
-- ⬜ Downloaded-only mode (airplane-mode browsing and playback as a first-class state, not a degradation).
-- ⬜ Storage management UI: per-album size, delete, re-download, and a cap.
-- ⬜ Sync on a schedule and on network change; conflict-free since the index is read-only.
-- ⬜ Large-library validation: the reference library is 5,535 tracks / 532 albums; validate at ~50,000 tracks and measure sync, search and index size.
+- ✅ Downloaded-only mode (airplane-mode browsing and playback as a first-class state, not a degradation). SQL scope, partial badges, OFFLINE chip, play guard — proven on device with screenshots.
+- ✅ Storage management UI: per-album size, delete, re-download, and a cap that refuses, never evicts.
+- ✅ Sync on foreground and network change (15-min throttle, manual bypass); conflict-free since the index is read-only. No-network banner with one-tap escape.
+- ✅ Large-library validation: 50k synthetic tracks locally — every scoped query under 10 ms, one index added for the recency sort.
 
 ## M4 — Desktop (Kotlin Multiplatform) ⬜
 

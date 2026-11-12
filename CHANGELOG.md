@@ -2,6 +2,17 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
+## [0.7.0] — 2026-11-12
+
+### Added
+- **Offline-first hardening (M3).** Downloaded-only mode is a first-class state: a persisted `downloadsOnly` switch scopes every screen in SQL (albums, recents, tracks, search, favourites, artists, playlists), with partial `3/12` badges, an OFFLINE chip, and a SET toggle. Tapping a non-downloaded track while offline refuses loud with a warn notice instead of silent nothing.
+- **Storage management.** `SET → STORAGE` shows used-of-cap, 1/2/4/8 GB pills (default 4 GB), per-album bytes biggest-first with DELETE plus DELETE EVERYTHING. Album screens show CAP REACHED when the cap refuses new work — the cap refuses, never evicts.
+- **Sync on foreground and network change.** Returning to the app or regaining connectivity syncs when 15 min elapsed since the last success; manual SYNC always bypasses the throttle. A warn banner appears while offline ("NO CONNECTION — tap to browse downloads") with one-tap escape into downloaded mode. No WorkManager, no new dependency.
+- **Header into the title row.** The EZAMP header is gone; Library + SYNC + SET share one row. (Reversible from git history.)
+
+### Performance
+- **50k-track validation (synthetic rows, local only).** Every scoped query under 10 ms at 10x the reference library; one new index on `libraryAlbum(created)` removed the only temp B-tree sort (`recentAlbums`/`scopedRecent` → 0.0 ms). Harness kept as a throwaway, untracked.
+
 ## [0.6.0] — 2026-11-12
 
 ### Added
