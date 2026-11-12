@@ -83,6 +83,6 @@ These each cost real debugging time; the reasoning is in [DESIGN.md](DESIGN.md) 
 ## Repository facts
 
 - Git repository on `master`, commits authored as `m3lis5a`. Push is owner-gated: never push without Calypso's explicit ok.
-- APKs and keystores are ignored. `dist/` tracks the device screenshots, not the binaries.
+- APKs, keystores and `dist/` are ignored: screenshots and sideloadable builds live on the build box, not in git.
 - No secrets in the tree. Credentials and API keys live outside the repo, in `~/.hermes/secrets/` on the owner's machines; never write them into files, logs or URLs. Auth travels in an `Authorization: MediaBrowser Token="…"` header.
 - `VERSION` drives `versionName`/`versionCode`; bump it with every shipped change and add a CHANGELOG entry.

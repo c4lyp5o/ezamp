@@ -62,7 +62,7 @@ In-app perf lines use the `ezamp-perf` tag (`sync=… total=…`, `search=…ms`
 - **Auth travels in headers only** (`Authorization: MediaBrowser Token="…"`), never in a query string, never in a URL, never in a log line.
 - **Minimal, task-scoped diffs.** Match Kotlin style already in the file: 4-space indent, explicit return types on public functions, no wildcard imports.
 - **Verify on device before claiming a fix.** A green build proves compilation, nothing else. Screenshots plus view-hierarchy bounds (`uiautomator dump`) settle layout questions that eyes get wrong — twice now a vision read claimed an overlap that was not there and missed one that was.
-- **Repository state:** commits land as `m3lis5a`. Push is owner-gated — never push without Calypso's explicit ok. APKs and keystores are ignored by git; `dist/` carries the device screenshots only.
+- **Repository state:** commits land as `m3lis5a`. Push is owner-gated — never push without Calypso's explicit ok. APKs, keystores and `dist/` (screenshots plus sideload builds) are ignored by git.
 
 ## Pitfalls
 

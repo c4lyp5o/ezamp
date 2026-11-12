@@ -15,8 +15,9 @@ captures/
 .DS_Store
 Thumbs.db
 
-# APKs are build artifacts, sideloaded out of band. dist/ keeps the
-# device screenshots (the evidence) but not the binaries.
+# Build artifacts stay out of the tree. dist/ holds the sideload APKs and
+# the device screenshots; both live on the box, not in git.
+dist/
 *.apk
 *.aab
 
