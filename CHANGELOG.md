@@ -2,6 +2,18 @@
 
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
+
+## [Unreleased]
+
+### Fixed
+- **Now Playing on short (16:9) screens** no longer pushes the queue counter off the bottom: the cover takes the height left after the fixed rows (a full-width square on tall phones, slightly smaller on 1080×1920). Checked at normal and 130% text.
+- **Numeric genres:** ID3v1 codes ("13") and ID3v2.3 forms ("(13)", "(13)Pop", "(RX)", "(CR)") become names at sync, so GENRES shows "Pop" instead of "13" and merges it with an existing "Pop". This library went from 195 to 181 distinct genres; codes outside the 0–191 table stay as written.
+
+### Changed
+- **Accessibility:** play/pause, previous/next, close Now Playing, favourite hearts and clear search now have spoken labels and a button role for TalkBack ("Pause", "Next track", "Add to favourites"…). Library, album, Playlists, Settings and Now Playing checked at 130% system text: nothing clipped.
+
+### Validation
+- Windows `assembleRelease`, 41 JVM tests (4 new genre-code cases). Emulator 1080×1920: counter bounds y 1825–1857 inside the screen; content descriptions present in the view hierarchy; post-sync query shows no numeric genres left.
 ## [0.9.1] — 2026-11-12
 
 ### Changed

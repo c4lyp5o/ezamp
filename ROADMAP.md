@@ -61,9 +61,9 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
 - ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
 - ⬜ Crossfade, equalizer, sleep timer — only if they can be done without touching the UI thread.
-- ⬜ Accessibility pass: content descriptions on the Canvas icons (shuffle and repeat have them since 0.9.0), dynamic type.
-- ⬜ ID3v1 numeric genres ("13", "137") show as numbers; map the code table if they matter.
-- ⬜ Now Playing on short (16:9) screens clips the queue counter under the transport.
+- ✅ Accessibility pass: every drawn or glyph control (play/pause, skip, close, hearts, clear search) has a spoken label and button role; screens checked at 130% system text.
+- ✅ ID3 numeric genres ("13", "(13)", "(13)Pop", "(RX)") map to names (ID3v1 + Winamp table, 0–191) at sync.
+- ✅ Now Playing on short (16:9) screens: the cover shrinks to fit, so the queue counter stays visible.
 
 ## M5 — Desktop (Kotlin Multiplatform) ⬜
 
