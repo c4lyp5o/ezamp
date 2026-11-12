@@ -1,0 +1,18 @@
+-- 0.7.0 recency index. 613c401 added it to Library.sq only, which runs on fresh installs alone;
+-- every upgraded install missed it. IF NOT EXISTS keeps this safe on a fresh 0.7.0 DB.
+--
+-- The CREATE TABLE is a no-op on every real database (libraryAlbum has existed since v1). It is
+-- here because .sqm files are compiled only against tables earlier migrations created, and
+-- libraryAlbum predates migrations; without it the compiler cannot resolve the index target.
+CREATE TABLE IF NOT EXISTS libraryAlbum (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    sortName TEXT NOT NULL DEFAULT '',
+    artist TEXT NOT NULL DEFAULT '',
+    year INTEGER,
+    trackCount INTEGER NOT NULL DEFAULT 0,
+    imageTag TEXT,
+    created TEXT
+);
+
+CREATE INDEX IF NOT EXISTS libraryAlbum_created ON libraryAlbum(created);

@@ -92,6 +92,10 @@ sqldelight {
     databases {
         create("EzampDb") {
             packageName.set("one.calypsocloud.ezamp.db")
+            // databases/N.db are snapshots of shipped schemas; the verify task replays N.sqm onward
+            // over each and fails the gate if the result drifts from Library.sq.
+            schemaOutputDirectory.set(file("src/main/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }
