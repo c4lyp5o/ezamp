@@ -32,6 +32,7 @@ CREATE TABLE libraryTrack (
 CREATE INDEX libraryTrack_album ON libraryTrack(albumId);
 CREATE INDEX libraryTrack_sort ON libraryTrack(sortName);
 CREATE INDEX libraryAlbum_sort ON libraryAlbum(sortName);
+CREATE INDEX libraryAlbum_created ON libraryAlbum(created);
 
 upsertAlbum:
 INSERT OR REPLACE INTO libraryAlbum(id, name, sortName, artist, year, trackCount, imageTag, created)
