@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import one.calypsocloud.ezamp.player.PlayState
@@ -62,7 +64,10 @@ fun NowPlaying(play: PlayState, onClose: () -> Unit) {
                 "⌄",
                 style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
                 color = Dim,
-                modifier = Modifier.clickable { onClose() }.padding(vertical = 14.dp, horizontal = 4.dp),
+                modifier = Modifier
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClose() }
+                    .semantics { contentDescription = "Close Now Playing" }
+                    .padding(vertical = 14.dp, horizontal = 4.dp),
             )
             Spacer(Modifier.weight(1f))
             Text(

@@ -20,6 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -861,10 +863,11 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                     style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                     color = if (fav) Accent else Ez.LineStrong,
                     modifier = Modifier
-                        .clickable {
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) {
                             fav = !fav
                             LibraryStore.toggleFavourite(t.id, fav)
                         }
+                        .semantics { contentDescription = if (fav) "Remove from favourites" else "Add to favourites" }
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                 )
                 Text(
@@ -911,10 +914,11 @@ fun TrackRow(t: Track, playing: Boolean, onClick: () -> Unit) {
             style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
             color = if (fav) Accent else Ez.LineStrong,
             modifier = Modifier
-                .clickable {
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) {
                     fav = !fav
                     LibraryStore.toggleFavourite(t.id, fav)
                 }
+                .semantics { contentDescription = if (fav) "Remove from favourites" else "Add to favourites" }
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         )
         Text(

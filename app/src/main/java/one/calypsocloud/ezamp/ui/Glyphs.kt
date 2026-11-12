@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun PlayPause(playing: Boolean, size: Dp = 56.dp, tint: Color = Ink, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.size(size).clickable { onClick() },
+        modifier = Modifier
+            .size(size)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
+            .semantics { contentDescription = if (playing) "Pause" else "Play" },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(size)) {
@@ -54,7 +57,10 @@ fun PlayPause(playing: Boolean, size: Dp = 56.dp, tint: Color = Ink, onClick: ()
 @Composable
 fun SkipGlyph(next: Boolean, size: Dp = 34.dp, tint: Color = Dim, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.size(size).clickable { onClick() },
+        modifier = Modifier
+            .size(size)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
+            .semantics { contentDescription = if (next) "Next track" else "Previous track" },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(size)) {
