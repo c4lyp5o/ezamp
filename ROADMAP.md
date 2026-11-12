@@ -56,17 +56,7 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ✅ Two tabs: LIBRARY · PLAYLISTS, with Favourites as a permanent playlist.
 - ✅ Shuffle and repeat, SHUFFLE on lists, swipe gestures on Now Playing and the mini player.
 
-## M4 — Desktop (Kotlin Multiplatform) ⬜
-
-- ⬜ Extract the platform-independent core: DTOs, API client, schema, sync logic.
-- ⬜ Linux and Windows shells (Compose Multiplatform), sharing the index format.
-- ⬜ Local file playback path shared with downloads.
-
-## M5 — macOS and iOS ⬜
-
-- ⬜ Same shared core, native playback sessions, platform-appropriate background audio and Now Playing integration.
-
-## M6 — Polish ⬜
+## M4 — Polish ⬜
 
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
 - ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
@@ -74,6 +64,16 @@ Established what was actually slow, so the architecture targets a real bottlenec
 - ⬜ Accessibility pass: content descriptions on the Canvas icons (shuffle and repeat have them since 0.9.0), dynamic type.
 - ⬜ ID3v1 numeric genres ("13", "137") show as numbers; map the code table if they matter.
 - ⬜ Now Playing on short (16:9) screens clips the queue counter under the transport.
+
+## M5 — Desktop (Kotlin Multiplatform) ⬜
+
+- ⬜ Extract the platform-independent core: DTOs, API client, schema, sync logic.
+- ⬜ Linux and Windows shells (Compose Multiplatform), sharing the index format.
+- ⬜ Local file playback path shared with downloads.
+
+## M6 — macOS and iOS ⬜
+
+- ⬜ Same shared core, native playback sessions, platform-appropriate background audio and Now Playing integration.
 
 ## Non-goals
 
