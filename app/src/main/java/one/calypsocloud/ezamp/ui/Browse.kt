@@ -327,7 +327,7 @@ private fun AlbumsPage(
     val cols = gridColumns()
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         if (searching) {
-            item { Caption("${shown.size} albums") }
+            item { Caption(plural("album", shown.size)) }
         } else if (lib.recent.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(18.dp))
@@ -400,7 +400,7 @@ private fun TracksPage(
                 when {
                     searching -> "${lib.results.size} results · ${lib.searchMs} ms · on-device"
                     all == null -> "reading tracks…"
-                    else -> "${all.size} tracks"
+                    else -> plural("track", all.size)
                 },
             )
         }
@@ -443,7 +443,7 @@ private fun ArtistsPage(
                         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 8.dp),
                     )
                 }
-                Caption("${shown.size} artists")
+                Caption(plural("artist", shown.size))
             }
         }
         items(shown, key = { it.name }) { a ->
@@ -492,7 +492,7 @@ private fun GenresPage(
                         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 8.dp),
                     )
                 }
-                Caption("${shown.size} genres")
+                Caption(plural("genre", shown.size))
             }
         }
         items(shown, key = { it.name }) { g ->
@@ -543,7 +543,7 @@ internal fun GenreScreen(name: String, play: PlayState, onBack: () -> Unit) {
                 Text(name, style = MaterialTheme.typography.headlineSmall, color = Ink)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (tracks == null) "reading tracks…" else "${rows.size} tracks",
+                    if (tracks == null) "reading tracks…" else plural("track", rows.size),
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -599,7 +599,7 @@ internal fun ArtistScreen(name: String, play: PlayState, onBack: () -> Unit, onO
                 Text(name, style = MaterialTheme.typography.headlineSmall, color = Ink)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${albums.size} albums",
+                    plural("album", albums.size),
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -628,14 +628,14 @@ internal fun PlaylistsScreen(
 ) {
     val entries: List<Playlist?> = listOf(null) + lib.playlists
     val cols = gridColumns()
-    val favCount = "${lib.favourites.size} tracks"
+    val favCount = plural("track", lib.favourites.size)
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp)) {
                 Text("Playlists", style = MaterialTheme.typography.displaySmall, color = Ink)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${entries.size} playlists",
+                    plural("playlist", entries.size),
                     style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -654,7 +654,7 @@ internal fun PlaylistsScreen(
                         if (pl == null) {
                             PlaylistTile("Favourites", favCount, Modifier.weight(1f), cover = { FavouritesArt(it) }, onClick = onOpenFavourites)
                         } else {
-                            PlaylistTile(pl.name, "${pl.trackCount} tracks", Modifier.weight(1f), cover = {
+                            PlaylistTile(pl.name, plural("track", pl.trackCount), Modifier.weight(1f), cover = {
                                 ArtBox(url = pl.artUri, label = pl.name, corner = 6.dp, modifier = it)
                             }) { onOpen(pl.id) }
                         }
@@ -667,7 +667,7 @@ internal fun PlaylistsScreen(
                 if (pl == null) {
                     PlaylistRow("Favourites", favCount, cover = { FavouritesArt(it, corner = 4.dp) }, onClick = onOpenFavourites)
                 } else {
-                    PlaylistRow(pl.name, "${pl.trackCount} tracks", cover = {
+                    PlaylistRow(pl.name, plural("track", pl.trackCount), cover = {
                         ArtBox(url = pl.artUri, label = pl.name, corner = 4.dp, modifier = it)
                     }) { onOpen(pl.id) }
                 }

@@ -119,6 +119,9 @@ fun EzampTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = type, content = content)
 }
 
+/** "1 track", "12 tracks": every counted word here takes a plain -s. */
+fun plural(word: String, n: Int): String = if (n == 1) "1 $word" else "$n ${word}s"
+
 fun fmt(ms: Long): String {
     if (ms <= 0) return "0:00"
     val total = ms / 1000

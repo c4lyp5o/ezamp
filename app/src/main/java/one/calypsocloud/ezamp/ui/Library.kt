@@ -310,7 +310,7 @@ internal fun AlbumRow(a: Album, playing: Boolean, done: Int = 0, onClick: () -> 
                 listOfNotNull(
                     a.artist.takeIf { it.isNotBlank() },
                     a.year?.toString(),
-                    "${a.trackCount} tracks".takeIf { a.trackCount > 0 },
+                    plural("track", a.trackCount).takeIf { a.trackCount > 0 },
                     partialLabel(done, a.trackCount),
                 ).joinToString(" · "),
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
@@ -362,7 +362,7 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
                 Text(pl?.name ?: "", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${tracks.size} tracks",
+                    plural("track", tracks.size),
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -576,7 +576,7 @@ private fun SettingsSheet(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                "${u.tracks} tracks",
+                                plural("track", u.tracks),
                                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                                 color = Mute,
                             )
@@ -681,7 +681,7 @@ private fun FavouritesScreen(
                 Text("Favourites", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, color = Ink)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (tracks.isEmpty()) "nothing yet — tap ♡ on any track" else "${tracks.size} tracks",
+                    if (tracks.isEmpty()) "nothing yet — tap ♡ on any track" else plural("track", tracks.size),
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
                     color = Dim,
                 )
@@ -772,7 +772,7 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
                     listOfNotNull(
                         album?.artist?.takeIf { it.isNotBlank() },
                         album?.year?.toString(),
-                        "${tracks.size} tracks",
+                        plural("track", tracks.size),
                     ).joinToString(" · "),
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                     color = Dim,
