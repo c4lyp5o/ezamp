@@ -39,10 +39,11 @@ Battery/CPU while playing is decode and audio routing, not UI: the main thread i
 - **Playlists:** a permanent Favourites playlist first, then the server's playlists that actually contain music; a Jellyfin playlist that is all video is not a music playlist.
 - **Playback:** plays from the `MediaSessionService`, survives leaving the app, position ticker only runs while a screen shows progress.
 - **Resume:** the queue and playhead survive the process being killed. Reopen and it is where you left it.
+- **Sleep timer:** SLEEP in Now Playing stops after 15–60 minutes (fading out over the last ten seconds) or at the end of the current track; it keeps counting with the screen off.
 - **Scrobbling:** start, progress (every 10 s) and stop are reported to Jellyfin, so play counts and "continue listening" stay truthful.
 - **Play mode:** Direct (server's own file) or Saver (mp3 192k transcode). Measured on this library: an album is 205 MB direct and 79 MB in saver — 61 % smaller — for roughly 300 ms extra to first audio.
 - **Favourites:** heart on any track row, written locally first and synced to Jellyfin; they gather in the Favourites playlist.
-- **Shuffle and repeat** (off/all/one) in Now Playing, remembered across restarts; SHUFFLE on album, playlist and genre screens. Swipe Now Playing down to close, swipe the mini player to skip, and tap the media notification to come back.
+- **Shuffle and repeat** (off/all/one) in Now Playing, remembered across restarts; SHUFFLE on album, playlist and genre screens. Swipe Now Playing down to close, swipe the mini player to skip, and tap the media notification to come back. Play/pause and skip give a short haptic tick (follows the phone's touch-feedback setting).
 - **Offline downloads:** download an album from its screen; when it is finished the same queue plays from disk with the radios off. Storage used is shown in SET, with one-tap delete.
 - **Two layouts**, switchable at any time from the SET sheet: art-forward (default) and classic dense rows.
 

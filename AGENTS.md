@@ -12,7 +12,8 @@ app/src/main/java/one/calypsocloud/ezamp/
   data/LibraryStore.kt   the index: schema access, two-phase sync, search, queries
   player/PlaybackService.kt  MediaSessionService + ExoPlayer + scrobble reporting
   player/PlayerHolder.kt     MediaController facade, PlayState, queue persistence
-  player/QueueStore.kt       queue.json (session state, not library data)
+  player/QueueStore.kt       queue*.json (session state, not library data)
+  player/SleepTimer.kt       sleep timer bound to the service's ExoPlayer
   ui/Library.kt          Root (all navigation state + back), album/playlist/favourites screens
   ui/Browse.kt           Library carousel, search field, pages, artist/genre screens, playlists tab
   ui/*.kt                other Compose screens; Theme.kt holds the ez house-style tokens

@@ -69,7 +69,7 @@ Measured: phase 1 lands at **7.3–9.3 s**; whole sync **8.5 s** warm, ~22–25 
 
 ### Queue persistence & resume
 
-`QueueStore` writes `filesDir/queue.json` — the queue is session state, so it must survive process death but must never be clobbered by a library sync. Written on play, on track change, and every 5 s while playing; a tmp file plus rename avoids torn writes; capped at 2,000 items.
+`QueueStore` keeps the queue in `filesDir` — it is session state, so it must survive process death but must never be clobbered by a library sync. Snapshots are queued on play, on track change, and every 5 s while playing; one conflated IO writer keeps only the newest, so nothing touches disk on the main thread. `queue.json` (version 2: track list plus a random `queueId`, capped at 2,000 items, up to ~1 MB) is rewritten only when the queue object changes; `queue-state.json` (index and position, ~80 bytes, tagged with the `queueId`) is the 5 s tick. A mismatched id after a crash between writes falls back to the queue start. Version-1 files (everything in `queue.json`) still load. Restore parses on IO and touches the controller on Main.
 
 On cold start `PlayerHolder.restore()` rebuilds `MediaItem`s and calls `setMediaItems(items, index, positionMs)` **without** `play()`, so the app reopens paused at the right place. Verification: killed at 17.9 s → reopened → played from 19.8 s (drift bounded by the 5 s save interval).
 
