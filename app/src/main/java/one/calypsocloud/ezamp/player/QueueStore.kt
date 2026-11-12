@@ -101,6 +101,9 @@ object QueueStore {
 
     /** Blocking file read: call from Dispatchers.IO. */
     fun load(ctx: Context): Saved? = runCatching {
+        // Left behind by the shelved radio builds; nothing reads them any more.
+        file(ctx, "queue-rotation.json").takeIf { it.exists() }?.delete()
+        file(ctx, "radio").takeIf { it.exists() }?.deleteRecursively()
         val f = file(ctx, FILE)
         if (!f.exists()) return null
         val root = JSONObject(f.readText())
