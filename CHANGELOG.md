@@ -6,11 +6,13 @@ All notable changes to ezamp are recorded here. The format follows [Keep a Chang
 ## [Unreleased]
 
 ### Added
+- **Local playlists.** Hold any track (Tracks, search, genre, album, playlist, Favourites) to open ADD TO PLAYLIST: every local playlist as a ●/○ row that toggles membership, plus + NEW PLAYLIST inline. NEW on the Playlists tab makes an empty one. A local playlist opens like any other (PLAY ALL, SHUFFLE, DOWNLOAD) with RENAME and a two-tap DELETE. They live only on this phone (migration 8: `localPlaylist`, `localPlaylistTrack`), keyed to the server and user, untouched by sync and sign-out; nothing is sent to Jellyfin. Server playlists stay read-only. The hold gives the long-press tick and TalkBack offers it as "Add to playlist".
 - **Equalizer** under SOUND in settings: off, the phone's own presets (Normal, Rock, Pop…) or a custom curve on its bands (five on most phones, ±15 dB in 1 dB steps). Moving a band from a preset turns it into CUSTOM; the choice and the custom curve are remembered. Uses Android's built-in `Equalizer` effect on the player's audio session, so the filtering runs in the system audio server, not in the app; a drag sends one call per 1 dB step for the band that moved.
 - **Sleep timer** in Now Playing: 15, 30, 45 or 60 minutes (fades out over the last ten seconds, then pauses and restores volume) or end of track (ExoPlayer pauses exactly at the track's end, no clipped start of the next one). Runs with the playback service, so it counts with the screen off.
 - **Haptic tick** on play/pause, previous/next (Now Playing, mini player, album screen) and on mini-player swipe-to-skip. Uses the phone's touch-feedback setting; no vibrate permission.
 
 ### Fixed
+- **Counts read "1 tracks", "1 albums"**; every count now says "1 track", "1 album", "1 genre"….
 - **A restored, paused track showed its length as 0:00** until it played (the player knows no duration before it prepares); the queue's own duration fills in.
 - **Radio leftovers removed:** `queue-rotation.json` and `files/radio/` from the shelved radio builds are deleted on the next start.
 - **Queue saving no longer blocks the main thread.** Up to 2,000 tracks of JSON (~1 MB) were rewritten on Main every 5 s while playing and parsed on Main at startup. The track list is now written only when the queue changes, the playhead tick writes an ~80-byte state file, all on one IO writer; restore parses on IO.

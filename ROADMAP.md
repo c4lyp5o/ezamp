@@ -60,6 +60,7 @@ Established what was actually slow, so the architecture targets a real bottlenec
 
 - ⬜ Search: FTS5 instead of `LIKE` if a large library demands it.
 - ✅ Track-level artists (features/splits) — 0.8.0, `libraryTrackArtist` + migration 6.
+- ✅ Local playlists: hold a track to add/remove, NEW, RENAME, DELETE; phone-only, never written to Jellyfin. Later, maybe: reorder, a one-way "copy to Jellyfin".
 - ✅ Sleep timer: 15–60 min with a 10 s fade, or end of track; runs with the service's player.
 - ✅ Equalizer: system `Equalizer` effect on the player's session (off, phone presets, custom bands); DSP runs in the audio server.
 - ⬜ Crossfade — only if it can be done without touching the UI thread.

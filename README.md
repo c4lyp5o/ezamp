@@ -36,7 +36,8 @@ Battery/CPU while playing is decode and audio routing, not UI: the main thread i
 - **Two tabs:** LIBRARY and PLAYLISTS. Back steps out one layer at a time and only leaves the app from bare Library.
 - **Library:** a label strip you swipe (one page per swipe) or tap — ALBUMS (recently added shelf, then every album), TRACKS (all of them A–Z), ARTISTS (every credited name, features included), GENRES (multi-genre tags split on `;`).
 - **Search:** one field under the strip filters whichever page is showing; instant and on-device (tracks over a pre-lowercased haystack column).
-- **Playlists:** a permanent Favourites playlist first, then the server's playlists that actually contain music; a Jellyfin playlist that is all video is not a music playlist.
+- **Playlists:** a permanent Favourites playlist first, then your local playlists, then the server's playlists that actually contain music; a Jellyfin playlist that is all video is not a music playlist.
+- **Local playlists:** hold any track to add it to a playlist or start a new one; NEW on the Playlists tab, RENAME and DELETE inside. They stay on this phone and never change anything on the server.
 - **Playback:** plays from the `MediaSessionService`, survives leaving the app, position ticker only runs while a screen shows progress.
 - **Resume:** the queue and playhead survive the process being killed. Reopen and it is where you left it.
 - **Equalizer:** SOUND in settings picks the phone's presets or a custom curve per band; the phone does the filtering, so it costs the app nothing while playing.

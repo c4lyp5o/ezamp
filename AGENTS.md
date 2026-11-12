@@ -17,10 +17,11 @@ app/src/main/java/one/calypsocloud/ezamp/
   player/Eq.kt               system Equalizer on the player's audio session
   ui/Library.kt          Root (all navigation state + back), album/playlist/favourites screens
   ui/Browse.kt           Library carousel, search field, pages, artist/genre screens, playlists tab
+  ui/Lists.kt            hold-a-track sheet, new-playlist sheet, name field (local playlists)
   ui/*.kt                other Compose screens; Theme.kt holds the ez house-style tokens
 app/src/main/sqldelight/one/calypsocloud/ezamp/db/
   Library.sq             current schema + queries
-  1.sqm, 2.sqm           migrations; each new table/column needs one
+  1.sqm … 8.sqm          migrations; each new table/column needs one (8 = local playlists)
 ```
 
 ## Commands
