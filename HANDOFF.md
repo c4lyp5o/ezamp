@@ -1,10 +1,10 @@
 # HANDOFF
 
-Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-13 for 0.9.3. Read this before touching code; it exists so you do not rediscover the traps.
+Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-13 for 1.0.0. Read this before touching code; it exists so you do not rediscover the traps.
 
 ## State
 
-Version **0.9.3**. Everything below marked ✅ was verified on a device, not assumed; rows added in 0.9.x were verified on the Android emulator (`emulator-5554` on the build box), not yet on the phone.
+Version **1.0.0** (first Play Store release). Everything below marked ✅ was verified on a device, not assumed; rows added in 0.9.x were verified on the Android emulator (`emulator-5554` on the build box), not yet on the phone.
 
 Device used: Nothing A063 (Spacewar), Android 15, wireless ADB. Server: Jellyfin 12.4.0 "The Pirate Bay" at `192.168.1.50:8096` on the LAN, library 5,535 tracks / 532 albums / 54 album artists / 31 playlists (4 with music).
 
@@ -35,11 +35,17 @@ Latest measured (release/R8):
 - jank 11.2% · PSS 180 MB · CPU playing 12% foreground / 2% paused of one core
 - APK 2.7 MB
 
-## Play Store prep (2026-11-13, unreleased)
+## 1.0.0 and Play Store prep (2026-11-13)
 
 Upload key generated on the build box at `C:\ezamp\keys\` (PKCS12, alias `upload`, `CN=ezamp`, SHA-256 `B1:5A:…:66:83:B6`, valid to 2054); the password exists only in `keystore.properties` beside it. **Back up that folder.** `bundleRelease -Pezamp.keystore=C:/ezamp/keys/keystore.properties` signs with it (checked with `keytool -printcert`); plain `assembleRelease` stays debug-signed. See [PLAYSTORE.md](PLAYSTORE.md) for the listing, the policy answers and what is still owed (512 px icon, feature graphic, reviewer server credentials, contact email).
 
 Also in this batch: adaptive and themed icon (emulator launcher checked, no clipping); backups exclude prefs and downloads; network security config (cleartext plus user CAs); Jellyfin client header now carries the model, install id and real version (sync verified on the emulator after the change, no 401s); status-bar icons forced light (they were dark in system light mode, caught in the store screenshots). Gate passed: assembleRelease, bundleRelease, all 48 JVM tests, migration verification, lintVitalRelease.
+
+## Demo server (for Play review)
+
+`https://media-test.calypso.dedyn.io`: Jellyfin 12.4.0 in Docker on the home box (`~/jellyfin-test/compose.yml`, traefik labels, CNAME `media-test` → `calypso.dedyn.io` on deSEC). Users `admin` and `reviewer`; passwords in `~/.hermes/secrets/jellyfin-test.env`. Library: 10 CC BY 3.0 tracks in 3 albums (`music/CREDITS.txt`). The emulator is signed in to it as `reviewer`; your own server is one sign-out away. Remove it after review with `docker compose down` in `~/jellyfin-test` and by deleting the deSEC record.
+
+Found while switching the emulator to it, and fixed in 1.0.0: old-server playlists surviving sign-out, a Jellyfin 12.4.0 bug that drops favourites set on the playing item, and stale hearts on album and playlist screens. All three were checked on the emulator against this server.
 
 ## 0.9.3 frontend cleanup (2026-11-13)
 
@@ -99,7 +105,7 @@ These each cost real debugging time; the reasoning is in [DESIGN.md](DESIGN.md) 
 
 ## First moves for the next session
 
-1. Build release, install, confirm 0.9.3 in the app and that the library still syncs (`ezamp-perf` lines `sync=` and `genres=`).
+1. Build release, install, confirm the version in the app and that the library still syncs (`ezamp-perf` lines `sync=` and `genres=`).
 2. Confirm the 0.9.x navigation on the phone (it was verified on the emulator): back order, carousel swipe, notification tap, shuffle coverage.
 3. Cold tap in Saver is 678 ms, which is ffmpeg start-up on the server, not the client. Only chase it if the first second of a Saver track becomes a reason not to use Saver.
 4. Keep `ezamp-perf` logging intact and add a line per new hot path — it is the only regression signal that exists.

@@ -41,24 +41,29 @@ Plain `assembleRelease` without the property stays debug-signed, so sideload APK
   > ezamp is an independent app. It is not made by or affiliated with the Jellyfin project.
 
 - **Category**: Music & Audio. **Tags**: music player, media server.
-- **Contact email**: required, and shown publicly. Owner to choose.
+- **Contact email** (shown publicly): `calypso.hellhammer@gmail.com`.
 - **Privacy policy URL**: `https://github.com/c4lyp5o/ezamp/blob/master/PRIVACY.md` (works once the repo is public).
 
 ## Graphics
 
 | Asset | Spec | State |
 | --- | --- | --- |
-| App icon | 512×512 PNG, 32-bit | ⬜ render from `ic_launcher_foreground.xml` on `#0B0B0C` |
-| Feature graphic | 1024×500 PNG/JPG | ⬜ |
-| Phone screenshots | 2–8, 9:16, 1080×1920 | ✅ 7 taken 2026-11-13 on the emulator (library, album, search, now playing, playlists, hold-to-add, sound). They show real album covers; see below. |
+| App icon | 512×512 PNG, 32-bit | ✅ `dist/play/icon-512.png`, drawn from the launcher icon's geometry and colours |
+| Feature graphic | 1024×500 PNG/JPG | ✅ `dist/play/feature-1024x500.png` |
+| Phone screenshots | 2–8, 9:16, 1080×1920 | ✅ `dist/play/01…07-*.png`: library, album, search, now playing, playlists, hold-to-add, sound |
+| Foreground-service video | short screen capture | ✅ `dist/play/ezamp-background-playback.mp4` (52 s): play → home → shade controls → screen off → lock-screen controls, still playing |
 
-Album covers are third-party copyrighted art. Many music apps show them in their listings, but they are a known reason for review rejection under Google's intellectual-property policy. The safest set is shot against a library of Creative Commons or public-domain music.
+`dist/` is git-ignored; the assets live on the dev box only. Everything was shot on the demo server below, whose music is all CC BY 3.0, so no third-party copyrighted cover art appears in the listing. Attribution, if Play or anyone asks: Softspace "Room With A View" (Musictrade mt012), Nicolas Falcon "Nicolas Falcon" (aaahh011) and Alexandr Katar "Click EP" (Prakteek Sound prak002), all from archive.org netlabels.
 
 ## App content (policy forms)
 
 - **Privacy policy**: the URL above.
 - **Ads**: no ads.
-- **App access**: the whole app sits behind a sign-in to the user's own server, so reviewers need credentials for a reachable Jellyfin server that has music. ⬜ Owner to provide: a server URL, username and password, and a note that says "enter the server address, then sign in".
+- **App access**: all functionality is behind a sign-in to a Jellyfin server. Give reviewers the demo server:
+  - Server address: `https://media-test.calypso.dedyn.io`
+  - Username: `reviewer`. Password: in `~/.hermes/secrets/jellyfin-test.env` (`JF_REVIEWER_PASS`), never in the repo.
+  - Instructions: "Enter the server address and tap NEXT, then sign in with the username and password. The library has 3 albums of Creative Commons music."
+  - The demo server is a temporary Jellyfin 12.4.0 container on the home box (`~/jellyfin-test`, behind traefik, CNAME on deSEC). **Keep it running until review passes**, and through any later review: Google re-checks updates.
 - **Content rating** (IARC questionnaire): a music player with no user-generated content, no chat and no purchases. The app streams the user's own library. The expected result is Everyone / PEGI 3.
 - **Target audience**: 18+ (or 13+). Not designed for children.
 - **Data safety**:
@@ -66,12 +71,12 @@ Album covers are third-party copyrighted art. Many music apps show them in their
   - Rationale: data only goes to a server the user runs and chooses. The developer and third parties receive nothing.
   - Encrypted in transit: depends on the user's server. Answer "No", because plain http to a LAN server is allowed.
   - Deletion: there is nothing held by the developer to delete; uninstalling clears the phone.
-- **Foreground service declaration**: type `mediaPlayback`. Use: music keeps playing with the screen off or the app in the background, started by the user pressing play. Play asks for a short video showing this: start playback, lock the phone, and show the notification controls.
+- **Foreground service declaration**: type `mediaPlayback`. Use: music keeps playing with the screen off or the app in the background, started by the user pressing play. Video: `dist/play/ezamp-background-playback.mp4`. Upload it to YouTube (unlisted) or Drive and paste the link, since Play asks for a URL.
 - **Government / financial / health / news**: not applicable.
 
 ## Release
 
-1. Set `VERSION` to `1.0.0` (versionCode 10000) and update the CHANGELOG.
+1. ✅ `VERSION` is `1.0.0` (versionCode 10000).
 2. Build the bundle as above and check its signer.
 3. Upload it to an **internal testing** track first, install it from Play on the phone, and check sign-in, playback, downloads and the notification.
 4. Promote it to production.
