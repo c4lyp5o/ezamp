@@ -26,10 +26,15 @@ android {
             parts.getOrElse(2) { 0 }
     }
 
-    // The upload key lives outside the tree. keystore.properties (git-ignored) names it:
+    // The upload key lives outside the tree. Point -Pezamp.keystore=<path> at a properties file
+    // (or drop keystore.properties, git-ignored, at the repo root) that names it:
     //   storeFile=C:/ezamp/keys/ezamp-upload.jks  storePassword=…  keyAlias=upload  keyPassword=…
-    // Without that file, release falls back to the debug key so local sideload builds keep working.
-    val keyProps = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f ->
+    // Without either, release falls back to the debug key so sideload builds keep upgrading in place.
+    val keyFile = providers.gradleProperty("ezamp.keystore").orNull?.let { path ->
+        // Asked for the upload key explicitly: a wrong path must fail, not quietly debug-sign.
+        file(path).also { if (!it.exists()) throw GradleException("ezamp.keystore: no file at $path") }
+    } ?: rootProject.file("keystore.properties")
+    val keyProps = keyFile.takeIf { it.exists() }?.let { f ->
         Properties().apply { f.inputStream().use { load(it) } }
     }
     signingConfigs {
