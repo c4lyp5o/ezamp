@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+. What a new phone gets back: the database (local playlists live there; the library
+     index rebuilds on the next sync anyway) and the saved queue. Never the sign-in: prefs hold the
+     access token and the per-install device id, so a restored phone signs in again. Never the
+     downloads: they are large, and rows whose file is missing are reconciled to "not downloaded". -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="ezamp.xml" />
+        <exclude domain="file" path="downloads/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="ezamp.xml" />
+        <exclude domain="file" path="downloads/" />
+    </device-transfer>
+</data-extraction-rules>

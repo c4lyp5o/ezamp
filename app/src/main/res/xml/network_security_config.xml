@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jellyfin is self-hosted: plain http on a home LAN is normal, and so is HTTPS with a certificate
+     from the owner's own CA. Allow both; system CAs still apply to everything else. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
