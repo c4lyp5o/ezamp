@@ -500,12 +500,36 @@ object LibraryStore {
                 val code = runCatching { a.setFavorite(uid, trackId, favourite) }.getOrDefault(-1)
                 android.util.Log.i("ezamp-fav", "$trackId favourite=$favourite http=$code")
             }
+            favReplay[trackId] = favourite
             val favs = runCatching {
                 (if (Prefs.downloadsOnly) q().scopedFavouriteTracks() else q().favouriteTracks())
                     .executeAsList().map { it.toDomain(a) }
             }
                 .getOrDefault(_state.value.favourites)
             _state.value = _state.value.copy(favourites = favs)
+        }
+    }
+
+    /**
+     * Jellyfin (seen on 12.4.0, reproduced with plain curl) loses a favourite changed on the item
+     * being played: that play session writes back the user data it loaded at "start" on every
+     * progress report and again when it closes. A change re-sent after the session has closed
+     * sticks. The session closes when another item starts, so every change is remembered here and
+     * re-sent by [replayFavourites] after the next "start" for a different track.
+     */
+    private val favReplay = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /** Re-send favourite changes for every track except [playingId], whose session is still open. */
+    suspend fun replayFavourites(playingId: String) = withContext(Dispatchers.IO) {
+        val pending = favReplay.filterKeys { it != playingId }
+        if (pending.isEmpty()) return@withContext
+        val a = api() ?: return@withContext
+        val uid = Prefs.userId ?: return@withContext
+        pending.forEach { (id, favourite) ->
+            val code = runCatching { a.setFavorite(uid, id, favourite) }.getOrDefault(-1)
+            android.util.Log.i("ezamp-fav", "$id favourite=$favourite replay http=$code")
+            // Drop it only if no newer tap replaced it meanwhile.
+            if (code in 200..299) favReplay.remove(id, favourite)
         }
     }
 
@@ -709,6 +733,7 @@ object LibraryStore {
     fun signOut() {
         Prefs.reset()
         api = null
+        favReplay.clear()
         scope.launch {
             runCatching {
                 val queries = q()

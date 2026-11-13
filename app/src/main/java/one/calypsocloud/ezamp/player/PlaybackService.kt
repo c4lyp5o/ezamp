@@ -201,6 +201,11 @@ class PlaybackService : MediaSessionService() {
                     if (event != "progress" || (code != 200 && code != 204)) {
                         android.util.Log.i("ezamp-scrobble", "$event http=$code pos=${positionMs}ms")
                     }
+                    // A new session closed the previous track's; favourites changed during it
+                    // can now be re-sent without being overwritten (see LibraryStore.favReplay).
+                    if (event == "start" && code in 200..299) {
+                        one.calypsocloud.ezamp.data.LibraryStore.replayFavourites(itemId)
+                    }
                 }
                 .onFailure { android.util.Log.w("ezamp-scrobble", "$event failed: ${it.message}") }
         }
