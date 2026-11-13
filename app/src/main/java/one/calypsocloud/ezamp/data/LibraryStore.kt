@@ -318,7 +318,8 @@ object LibraryStore {
             android.util.Log.w("ezamp-perf", "playlist list failed: ${e.message}")
             return
         }
-        if (playlistsRaw.isEmpty()) return
+        // An empty list is an answer, not a failure: the server has no playlists (a new server,
+        // or the last one was deleted), so every stored one must go. Failures returned above.
 
         val meta = queries.allPlaylistMeta().executeAsList().associateBy { it.id }
         val stale = playlistsRaw.filter { meta[it.Id]?.remoteCount != (it.ChildCount ?: 0).toLong() }
@@ -711,11 +712,17 @@ object LibraryStore {
         scope.launch {
             runCatching {
                 val queries = q()
+                // Everything that came from that server goes; local playlists stay, keyed to their
+                // owner, so they reappear only if the same account signs back in.
                 queries.transaction {
                     queries.clearTracks()
                     queries.clearAlbums()
+                    queries.clearTrackArtists()
+                    queries.clearTrackGenres()
+                    queries.clearPlaylistTracks()
+                    queries.clearPlaylists()
                 }
-            }
+            }.onFailure { android.util.Log.w("ezamp-perf", "sign-out clear failed: ${it.message}") }
         }
         _state.value = LibState()
     }
