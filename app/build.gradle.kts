@@ -64,6 +64,8 @@ android {
 
     buildFeatures {
         compose = true
+        // VERSION_NAME goes into Jellyfin's client header.
+        buildConfig = true
     }
 
     testOptions {

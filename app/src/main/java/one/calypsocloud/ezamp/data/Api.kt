@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import one.calypsocloud.ezamp.BuildConfig
 
 // ---------------------------------------------------------------- DTOs (PascalCase, Jellyfin wire format)
 
@@ -201,6 +202,15 @@ object Prefs {
     fun reset() = sp.edit().clear().apply()
 }
 
+/**
+ * Who we are, for Jellyfin's Devices and Activity pages: the phone model, this install's id and
+ * the real app version. Sign-in and every later call send the same id, so one phone is one device.
+ */
+internal fun clientFields(): String {
+    val model = android.os.Build.MODEL.orEmpty().replace("\"", "").ifBlank { "Android" }
+    return "Client=\"ezamp\", Device=\"$model\", DeviceId=\"${Prefs.deviceId}\", Version=\"${BuildConfig.VERSION_NAME}\""
+}
+
 // ---------------------------------------------------------------- onboarding: probe + sign-in
 
 object Auth {
@@ -238,8 +248,7 @@ object Auth {
         }
     }
 
-    private fun deviceHeader(): String =
-        "MediaBrowser Client=\"ezamp\", Device=\"android\", DeviceId=\"${Prefs.deviceId}\", Version=\"0.1.0\""
+    private fun deviceHeader(): String = "MediaBrowser ${clientFields()}"
 
     /** Step 1 — does this address answer as a Jellyfin server? Anonymous endpoint, no credentials. */
     suspend fun probe(rawUrl: String): PublicSystemInfo {
@@ -301,7 +310,8 @@ class JellyfinApi(val baseUrl: String, val token: String) {
         }
     }
 
-    val authHeader: String = "MediaBrowser Token=\"$token\", Client=\"ezamp\", Device=\"android\", DeviceId=\"ezamp\", Version=\"0.1.0\""
+    // Lazy: Prefs (device id) is read on the first request, not when the client is built.
+    val authHeader: String by lazy { "MediaBrowser Token=\"$token\", ${clientFields()}" }
 
     suspend fun users(): List<UserDto> =
         client.get("$baseUrl/Users") { header("Authorization", authHeader) }.body()
