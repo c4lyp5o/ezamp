@@ -3,6 +3,16 @@
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
 
+## [0.9.3] — 2026-11-13
+
+### Changed
+- Removed the onboarding tagline and server-address helper text, layout descriptions, and visible cold/sync/tap-to-audio statistics. Performance logging stays available in logcat.
+- Playback descriptions now read "lossless" and "transcoded mp3 192k".
+- Storage choices are 4, 8, 16, 32 and 64 GB, plus Unlimited. Choices wrap on narrow screens; the existing download cap policy is unchanged.
+
+### Validation
+- Windows release build, all 48 JVM tests and migration verification passed. Emulator: settings text and storage persistence checked, including Unlimited after restart; storage choices fit at 130% text.
+
 ## [0.9.2] — 2026-11-13
 
 ### Added

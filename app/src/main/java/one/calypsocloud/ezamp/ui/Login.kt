@@ -95,12 +95,6 @@ fun LoginScreen(onDone: () -> Unit) {
     ) {
         Spacer(Modifier.height(72.dp))
         Text("ezamp", style = MaterialTheme.typography.displaySmall, color = Ink)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "Jellyfin, without the waiting.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Dim,
-        )
 
         Spacer(Modifier.height(44.dp))
         StepRail(step)
@@ -115,12 +109,6 @@ fun LoginScreen(onDone: () -> Unit) {
                 imeAction = ImeAction.Go,
                 onDone = { checkServer() },
                 onChange = { base = it; error = null },
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "The address you'd open in a browser. Plain http is fine on your own network.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Mute,
             )
             Spacer(Modifier.height(26.dp))
             Action(

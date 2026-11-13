@@ -23,11 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -477,7 +473,7 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
 
 // ------------------------------------------------------------------ settings
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsSheet(
     variant: String,
@@ -516,12 +512,10 @@ private fun SettingsSheet(
             Spacer(Modifier.height(4.dp))
             ChoiceRow(
                 title = "Art-forward",
-                detail = "big covers, two columns, more air",
                 selected = variant == "art",
             ) { onVariant("art") }
             ChoiceRow(
                 title = "Classic",
-                detail = "dense list, small covers",
                 selected = variant == "classic",
             ) { onVariant("classic") }
 
@@ -530,12 +524,12 @@ private fun SettingsSheet(
             Spacer(Modifier.height(4.dp))
             ChoiceRow(
                 title = "Direct",
-                detail = "server's own file · lossless · fastest start",
+                detail = "lossless",
                 selected = playMode == "direct",
             ) { onPlayMode("direct") }
             ChoiceRow(
                 title = "Saver",
-                detail = "transcoded mp3 ${Prefs.saverKbps}k · downloads follow this",
+                detail = "transcoded mp3 ${Prefs.saverKbps}k",
                 selected = playMode == "saver",
             ) { onPlayMode("saver") }
 
@@ -597,8 +591,8 @@ private fun SettingsSheet(
                 },
             )
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                listOf(1024, 2048, 4096, 8192).forEach { mb ->
+            FlowRow(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(4096, 8192, 16384, 32768, 65536, 0).forEach { mb ->
                     val selected = capMb == mb
                     Box(
                         Modifier
@@ -608,9 +602,11 @@ private fun SettingsSheet(
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text(
-                            "${mb / 1024} GB",
+                            if (mb == 0) "UNLIMITED" else "${mb / 1024} GB",
                             style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                             color = if (selected) Accent else Mute,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -694,7 +690,7 @@ private fun SettingsSheet(
 }
 
 @Composable
-internal fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ChoiceRow(title: String, detail: String = "", selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -708,7 +704,9 @@ internal fun ChoiceRow(title: String, detail: String, selected: Boolean, onClick
                 style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                 color = if (selected) Accent else Ink,
             )
-            Text(detail, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = Mute)
+            if (detail.isNotEmpty()) {
+                Text(detail, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, color = Mute)
+            }
         }
         Text(
             if (selected) "●" else "○",
@@ -1089,23 +1087,4 @@ internal fun SectionLabel(text: String) {
         color = Dim,
         modifier = Modifier.padding(horizontal = 22.dp),
     )
-}
-
-@Composable
-internal fun PerfFooter(lib: LibState) {
-    Column(Modifier.padding(horizontal = 22.dp)) {
-        Hairline()
-        Spacer(Modifier.height(10.dp))
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = Dim)) { append("cold ") }
-                withStyle(SpanStyle(color = Ink)) { append("${lib.coldStartMs} ms") }
-                withStyle(SpanStyle(color = Dim)) { append("   sync ") }
-                withStyle(SpanStyle(color = Ink)) { append("${lib.syncMs} ms") }
-                withStyle(SpanStyle(color = Dim)) { append("   tap→audio ") }
-                withStyle(SpanStyle(color = Ink)) { append(if (lib.firstAudioMs > 0) "${lib.firstAudioMs} ms" else "—") }
-            },
-            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-        )
-    }
 }

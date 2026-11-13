@@ -374,12 +374,6 @@ private fun AlbumsPage(
             }
         }
 
-        if (!searching) {
-            item {
-                Spacer(Modifier.height(18.dp))
-                PerfFooter(lib)
-            }
-        }
     }
 }
 

@@ -1,10 +1,10 @@
 # HANDOFF
 
-Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-13 for 0.9.2. Read this before touching code; it exists so you do not rediscover the traps.
+Where ezamp actually stands, for whoever picks this up next (human or agent). Written 2026-11-11 at 0.4.4, state and version refreshed 2026-11-13 for 0.9.3. Read this before touching code; it exists so you do not rediscover the traps.
 
 ## State
 
-Version **0.9.2**. Everything below marked ✅ was verified on a device, not assumed; rows added in 0.9.x were verified on the Android emulator (`emulator-5554` on the build box), not yet on the phone.
+Version **0.9.3**. Everything below marked ✅ was verified on a device, not assumed; rows added in 0.9.x were verified on the Android emulator (`emulator-5554` on the build box), not yet on the phone.
 
 Device used: Nothing A063 (Spacewar), Android 15, wireless ADB. Server: Jellyfin 12.4.0 "The Pirate Bay" at `192.168.1.50:8096` on the LAN, library 5,535 tracks / 532 albums / 54 album artists / 31 playlists (4 with music).
 
@@ -34,6 +34,12 @@ Latest measured (release/R8):
 - tap→audio 161–388 ms warm, 366–544 ms cold FLAC
 - jank 11.2% · PSS 180 MB · CPU playing 12% foreground / 2% paused of one core
 - APK 2.7 MB
+
+## 0.9.3 frontend cleanup (2026-11-13)
+
+Removed the onboarding tagline and server helper, layout descriptions, and visible performance footer. Playback descriptions are now "lossless" and "transcoded mp3 192k". Storage offers 4/8/16/32/64 GB and Unlimited, with wrapping choices; Unlimited stores the existing 0 MB sentinel. Existing caps and download policy are preserved. `ezamp-perf` logging remains intact.
+
+Windows `assembleRelease`, all 48 JVM tests and migration verification passed. Emulator settings checks confirmed the shortened descriptions, 16/32/64 GB and Unlimited persistence, Unlimited restoration after process death, and all six storage labels within screen bounds at 130% text size.
 
 ## 0.9.2 review fixes (2026-11-13)
 
@@ -87,14 +93,14 @@ These each cost real debugging time; the reasoning is in [DESIGN.md](DESIGN.md) 
 
 ## First moves for the next session
 
-1. Build release, install, confirm 0.9.2 in the app and that the library still syncs (`ezamp-perf` lines `sync=` and `genres=`).
+1. Build release, install, confirm 0.9.3 in the app and that the library still syncs (`ezamp-perf` lines `sync=` and `genres=`).
 2. Confirm the 0.9.x navigation on the phone (it was verified on the emulator): back order, carousel swipe, notification tap, shuffle coverage.
 3. Cold tap in Saver is 678 ms, which is ffmpeg start-up on the server, not the client. Only chase it if the first second of a Saver track becomes a reason not to use Saver.
 4. Keep `ezamp-perf` logging intact and add a line per new hot path — it is the only regression signal that exists.
 
 ## Repository facts
 
-- Current review branch is `feat/polish`, targeting `master`, commits authored as `m3lis5a`. Push is owner-gated: never push without Calypso's explicit ok.
+- `feat/polish` is merged locally into `master`, commits authored as `m3lis5a`. Push is owner-gated: never push without Calypso's explicit ok.
 - APKs, keystores and `dist/` are ignored: screenshots and sideloadable builds live on the build box, not in git.
 - No secrets in the tree. Credentials and API keys live outside the repo, in `~/.hermes/secrets/` on the owner's machines; never write them into files, logs or URLs. Auth travels in an `Authorization: MediaBrowser Token="…"` header.
 - `VERSION` drives `versionName`/`versionCode`; bump it with every shipped change and add a CHANGELOG entry.
