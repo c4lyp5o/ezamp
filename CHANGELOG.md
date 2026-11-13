@@ -3,6 +3,19 @@
 All notable changes to ezamp are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/). `VERSION` at the repo root is the single source of truth for the version string.
 
 
+## [Unreleased]
+
+### Added
+- **Play Store groundwork.** Release bundles can be signed with an upload key kept outside the repo (`-Pezamp.keystore=<file>`; plain release APKs keep the debug key). Adaptive launcher icon with a themed (monochrome) layer. [PRIVACY.md](PRIVACY.md) and [PLAYSTORE.md](PLAYSTORE.md): listing text, policy-form answers, release steps.
+
+### Fixed
+- **Status-bar icons were dark on the dark app** whenever the phone was in light mode; both system bars are now pinned to light icons.
+- **Backups carried the access token.** Android backup and device transfer now skip the prefs (token, device id) and downloads; the database still restores, so local playlists survive a phone change and the new phone signs in again.
+- **Every install looked like one device to Jellyfin.** API calls sent `DeviceId="ezamp"` and version 0.1.0; they now send the phone model, the per-install id that sign-in already used, and the real app version.
+
+### Changed
+- Cleartext http stays allowed (LAN servers), now through a network security config that also trusts user-installed CAs, for servers behind a self-signed or home-CA certificate.
+
 ## [0.9.3] — 2026-11-13
 
 ### Changed

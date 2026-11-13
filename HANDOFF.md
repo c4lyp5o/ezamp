@@ -35,6 +35,12 @@ Latest measured (release/R8):
 - jank 11.2% · PSS 180 MB · CPU playing 12% foreground / 2% paused of one core
 - APK 2.7 MB
 
+## Play Store prep (2026-11-13, unreleased)
+
+Upload key generated on the build box at `C:\ezamp\keys\` (PKCS12, alias `upload`, `CN=ezamp`, SHA-256 `B1:5A:…:66:83:B6`, valid to 2054); the password exists only in `keystore.properties` beside it. **Back up that folder.** `bundleRelease -Pezamp.keystore=C:/ezamp/keys/keystore.properties` signs with it (checked with `keytool -printcert`); plain `assembleRelease` stays debug-signed. See [PLAYSTORE.md](PLAYSTORE.md) for the listing, the policy answers and what is still owed (512 px icon, feature graphic, reviewer server credentials, contact email).
+
+Also in this batch: adaptive and themed icon (emulator launcher checked, no clipping); backups exclude prefs and downloads; network security config (cleartext plus user CAs); Jellyfin client header now carries the model, install id and real version (sync verified on the emulator after the change, no 401s); status-bar icons forced light (they were dark in system light mode, caught in the store screenshots). Gate passed: assembleRelease, bundleRelease, all 48 JVM tests, migration verification, lintVitalRelease.
+
 ## 0.9.3 frontend cleanup (2026-11-13)
 
 Removed the onboarding tagline and server helper, layout descriptions, and visible performance footer. Playback descriptions are now "lossless" and "transcoded mp3 192k". Storage offers 4/8/16/32/64 GB and Unlimited, with wrapping choices; Unlimited stores the existing 0 MB sentinel. Existing caps and download policy are preserved. `ezamp-perf` logging remains intact.
@@ -69,7 +75,7 @@ cd /d C:\ezamp\src
 C:\ezamp\tools\gradle-8.14.3\bin\gradle.bat :app:assembleRelease --console=plain > C:\ezamp\out\buildN.log 2>&1
 ```
 
-Then copy `app/build/outputs/apk/release/app-release.apk` out and `adb install -r` it. Release builds are signed with the debug keystore so they upgrade over each other and keep data — replace that before distributing to anyone else.
+Then copy `app/build/outputs/apk/release/app-release.apk` out and `adb install -r` it. Release APKs are signed with the debug keystore so they upgrade over each other and keep data. Store bundles use the upload key; see [PLAYSTORE.md](PLAYSTORE.md).
 
 ADB: the wireless port rotates whenever debugging is toggled or the phone sleeps.
 
