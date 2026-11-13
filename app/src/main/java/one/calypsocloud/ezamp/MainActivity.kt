@@ -2,9 +2,11 @@ package one.calypsocloud.ezamp
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,7 +38,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // ezamp is always dark. The default (auto) follows the system theme, which drew dark
+        // status-bar icons on our dark background whenever the phone was in light mode.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         // Phones stay upright: in landscape the fixed header, mini player and tabs leave ~100 px for
         // content. Tablets and unfolded foldables (shortest side >= 600 dp) rotate freely, which
         // Android 16 enforces there anyway for apps targeting API 36.
