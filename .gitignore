@@ -23,3 +23,6 @@ dist/
 
 # Python helpers used for device testing
 __pycache__/
+
+# Upload-key passwords for release signing (see app/build.gradle.kts)
+keystore.properties

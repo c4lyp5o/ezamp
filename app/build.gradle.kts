@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -25,6 +26,23 @@ android {
             parts.getOrElse(2) { 0 }
     }
 
+    // The upload key lives outside the tree. keystore.properties (git-ignored) names it:
+    //   storeFile=C:/ezamp/keys/ezamp-upload.jks  storePassword=…  keyAlias=upload  keyPassword=…
+    // Without that file, release falls back to the debug key so local sideload builds keep working.
+    val keyProps = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { f ->
+        Properties().apply { f.inputStream().use { load(it) } }
+    }
+    signingConfigs {
+        if (keyProps != null) {
+            create("upload") {
+                storeFile = file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ""
@@ -34,7 +52,7 @@ android {
             // Perf numbers from a debug build are meaningless: R8 + no JIT warmup is the real app.
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
