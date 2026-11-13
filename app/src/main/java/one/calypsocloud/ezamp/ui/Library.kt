@@ -334,7 +334,7 @@ private fun PlaylistScreen(playlistId: String, play: PlayState, onBack: () -> Un
     val pl = (lib.localPlaylists + lib.playlists).firstOrNull { it.id == playlistId }
     val local = LibraryStore.isLocal(playlistId)
     var tracks by remember(playlistId) { mutableStateOf<List<Track>>(emptyList()) }
-    LaunchedEffect(playlistId, lib.localVersion) { tracks = LibraryStore.playlistTracks(playlistId) }
+    LaunchedEffect(playlistId, lib.localVersion, lib.favourites) { tracks = LibraryStore.playlistTracks(playlistId) }
     val scope = rememberCoroutineScope()
     var renaming by remember(playlistId) { mutableStateOf(false) }
     var confirmDelete by remember(playlistId) { mutableStateOf(false) }
@@ -782,7 +782,9 @@ private fun AlbumScreen(albumId: String, play: PlayState, onBack: () -> Unit) {
     val lib by LibraryStore.state.collectAsState()
     val album = lib.albums.firstOrNull { it.id == albumId }
     var tracks by remember(albumId) { mutableStateOf<List<Track>>(emptyList()) }
-    LaunchedEffect(albumId) { tracks = LibraryStore.albumTracks(albumId) }
+    // Reload when favourites change: hearts seed from these rows, and a stale row resets a heart
+    // the moment it recomposes.
+    LaunchedEffect(albumId, lib.favourites) { tracks = LibraryStore.albumTracks(albumId) }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val dl by one.calypsocloud.ezamp.data.Downloads.state.collectAsState()
